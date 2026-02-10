@@ -1,0 +1,381 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1178pt" height="1053pt" viewBox="0.00 0.00 1178.33 1053.00">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 1049)">
+<title>CoHabitant_EER_Final</title>
+<polygon fill="#ffffff" stroke="transparent" points="-4,4 -4,-1049 1174.3305,-1049 1174.3305,4 -4,4"/>
+<!-- PERSON -->
+<g id="node1" class="node">
+<title>PERSON</title>
+<polygon fill="#e6f3ff" stroke="#000000" stroke-width="1.5" points="467.942,-.5 467.942,-64.5 581.175,-64.5 581.175,-.5 467.942,-.5"/>
+<text text-anchor="middle" x="524.5585" y="-51.5" font-family="Arial" font-size="10.00" fill="#000000">PERSON (Supertype)</text>
+<polyline fill="none" stroke="#000000" stroke-width="1.5" points="467.942,-44.5 581.175,-44.5 "/>
+<text text-anchor="start" x="475.942" y="-31.5" font-family="Arial" font-size="10.00" fill="#000000">Name</text>
+<text text-anchor="start" x="475.942" y="-19.5" font-family="Arial" font-size="10.00" fill="#000000">Email</text>
+<text text-anchor="start" x="475.942" y="-7.5" font-family="Arial" font-size="10.00" fill="#000000">Phone Number</text>
+</g>
+<!-- DISJOINT_PERSON -->
+<g id="node2" class="node">
+<title>DISJOINT_PERSON</title>
+<ellipse fill="none" stroke="#000000" stroke-width="1.5" cx="524.5585" cy="-150" rx="18" ry="18"/>
+<text text-anchor="middle" x="524.5585" y="-146.4" font-family="Arial" font-size="12.00" fill="#000000">d</text>
+</g>
+<!-- PERSON&#45;&gt;DISJOINT_PERSON -->
+<g id="edge1" class="edge">
+<title>PERSON-&gt;DISJOINT_PERSON</title>
+<path fill="none" stroke="#000000" stroke-width="1.2" d="M524.5585,-64.6074C524.5585,-86.215 524.5585,-113.9227 524.5585,-131.8178"/>
+</g>
+<!-- LANDLORD -->
+<g id="node3" class="node">
+<title>LANDLORD</title>
+<polygon fill="#ffffff" stroke="#000000" stroke-width="1.5" points="388.4985,-247.5 388.4985,-299.5 460.6185,-299.5 460.6185,-247.5 388.4985,-247.5"/>
+<text text-anchor="middle" x="424.5585" y="-286.5" font-family="Arial" font-size="10.00" fill="#000000">LANDLORD</text>
+<polyline fill="none" stroke="#000000" stroke-width="1.5" points="388.4985,-279.5 460.6185,-279.5 "/>
+<text text-anchor="start" x="396.4985" y="-266.5" font-family="Arial" font-size="10.00" fill="#000000">Bank Details</text>
+<text text-anchor="start" x="396.4985" y="-254.5" font-family="Arial" font-size="10.00" fill="#000000">Tax ID</text>
+</g>
+<!-- DISJOINT_PERSON&#45;&gt;LANDLORD -->
+<g id="edge2" class="edge">
+<title>DISJOINT_PERSON-&gt;LANDLORD</title>
+<path fill="none" stroke="#000000" stroke-width="1.2" d="M524.5585,-168.0307C524.5585,-202.4218 524.5585,-274 524.5585,-274 524.5585,-274 489.3046,-274 460.6608,-274"/>
+</g>
+<!-- TENANT -->
+<g id="node4" class="node">
+<title>TENANT</title>
+<polygon fill="#ffffff" stroke="#000000" stroke-width="1.5" points="508.4425,-684.9 508.4425,-760.9 616.6745,-760.9 616.6745,-684.9 508.4425,-684.9"/>
+<text text-anchor="middle" x="562.5585" y="-747.9" font-family="Arial" font-size="10.00" fill="#000000">TENANT</text>
+<polyline fill="none" stroke="#000000" stroke-width="1.5" points="508.4425,-740.9 616.6745,-740.9 "/>
+<text text-anchor="start" x="516.4425" y="-727.9" font-family="Arial" font-size="10.00" fill="#000000">Current Net Balance</text>
+<text text-anchor="start" x="516.4425" y="-715.9" font-family="Arial" font-size="10.00" fill="#000000">Emergency Contact</text>
+<text text-anchor="start" x="516.4425" y="-703.9" font-family="Arial" font-size="10.00" fill="#000000">Move-In Date</text>
+<text text-anchor="start" x="516.4425" y="-691.9" font-family="Arial" font-size="10.00" fill="#000000">Chore Weight Factor</text>
+</g>
+<!-- DISJOINT_PERSON&#45;&gt;TENANT -->
+<g id="edge3" class="edge">
+<title>DISJOINT_PERSON-&gt;TENANT</title>
+<path fill="none" stroke="#000000" stroke-width="1.2" d="M542.6145,-151C553.5695,-151 565.453,-151 565.453,-151 565.453,-151 565.453,-556.2609 565.453,-684.488"/>
+</g>
+<!-- PROPERTY -->
+<g id="node9" class="node">
+<title>PROPERTY</title>
+<polygon fill="#ffffff" stroke="#000000" stroke-width="1.5" points="312.7175,-389.3 312.7175,-453.3 400.3995,-453.3 400.3995,-389.3 312.7175,-389.3"/>
+<text text-anchor="middle" x="356.5585" y="-440.3" font-family="Arial" font-size="10.00" fill="#000000">PROPERTY</text>
+<polyline fill="none" stroke="#000000" stroke-width="1.5" points="312.7175,-433.3 400.3995,-433.3 "/>
+<text text-anchor="start" x="320.7175" y="-420.3" font-family="Arial" font-size="10.00" fill="#000000">Address</text>
+<text text-anchor="start" x="320.7175" y="-408.3" font-family="Arial" font-size="10.00" fill="#000000">Max Occupancy</text>
+<text text-anchor="start" x="320.7175" y="-396.3" font-family="Arial" font-size="10.00" fill="#000000">WiFi Password</text>
+</g>
+<!-- LANDLORD&#45;&gt;PROPERTY -->
+<g id="edge7" class="edge">
+<title>LANDLORD-&gt;PROPERTY</title>
+<path fill="none" stroke="#000000" stroke-width="1.2" d="M394.449,-303.5835C394.449,-303.5835 394.449,-381.2993 394.449,-381.2993"/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="398.449,-388.4993 390.449,-388.4993 390.449,-386.8993 398.449,-386.8993 398.449,-388.4993"/>
+<polyline fill="none" stroke="#000000" stroke-width="1.2" points="394.449,-389.2993 394.449,-385.2993 "/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="394.449,-307.5835 398.049,-299.5834 394.449,-303.5835 394.449,-299.5835 394.449,-299.5835 394.449,-299.5835 394.449,-303.5835 390.849,-299.5835 394.449,-307.5835 394.449,-307.5835"/>
+<text text-anchor="middle" x="412.0601" y="-347.7" font-family="Arial" font-size="9.00" fill="#000000">owns</text>
+</g>
+<!-- PERSONAL_ITEM -->
+<g id="node8" class="node">
+<title>PERSONAL_ITEM</title>
+<polygon fill="#ffffff" stroke="#000000" stroke-width="1.5" points="0,-856.7 0,-896.7 97.117,-896.7 97.117,-856.7 0,-856.7"/>
+<text text-anchor="middle" x="48.5585" y="-883.7" font-family="Arial" font-size="10.00" fill="#000000">PERSONAL ITEM</text>
+<polyline fill="none" stroke="#000000" stroke-width="1.5" points="0,-876.7 97.117,-876.7 "/>
+<text text-anchor="start" x="8" y="-863.7" font-family="Arial" font-size="10.00" fill="#000000">Is Private</text>
+</g>
+<!-- TENANT&#45;&gt;PERSONAL_ITEM -->
+<g id="edge13" class="edge">
+<title>TENANT-&gt;PERSONAL_ITEM</title>
+<path fill="none" stroke="#000000" stroke-width="1.2" d="M504.0978,-704C504.0978,-704 62.5573,-704 62.5573,-704 62.5573,-704 62.5573,-848.5511 62.5573,-848.5511"/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="507.2977,-700 507.2979,-708 505.6979,-708.0001 505.6977,-700.0001 507.2977,-700"/>
+<polyline fill="none" stroke="#000000" stroke-width="1.2" points="508.0978,-704 504.0978,-704.0001 "/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="62.5573,-848.5511 58.9573,-856.5511 62.5573,-852.5511 62.5573,-856.5511 62.5573,-856.5511 62.5573,-856.5511 62.5573,-852.5511 66.1573,-856.5512 62.5573,-848.5511 62.5573,-848.5511"/>
+<text text-anchor="middle" x="148.0602" y="-797.1" font-family="Arial" font-size="9.00" fill="#000000">owns</text>
+</g>
+<!-- SUB_LEASE -->
+<g id="node11" class="node">
+<title>SUB_LEASE</title>
+<polygon fill="#ffffff" stroke="#000000" stroke-width="1.5" points="893.11,-844.7 893.11,-908.7 978.007,-908.7 978.007,-844.7 893.11,-844.7"/>
+<text text-anchor="middle" x="935.5585" y="-895.7" font-family="Arial" font-size="10.00" fill="#000000">SUB-LEASE</text>
+<polyline fill="none" stroke="#000000" stroke-width="1.5" points="893.11,-888.7 978.007,-888.7 "/>
+<text text-anchor="start" x="901.11" y="-875.7" font-family="Arial" font-size="10.00" fill="#000000">Start Date</text>
+<text text-anchor="start" x="901.11" y="-863.7" font-family="Arial" font-size="10.00" fill="#000000">End Date</text>
+<text text-anchor="start" x="901.11" y="-851.7" font-family="Arial" font-size="10.00" fill="#000000">Pro-Rated Cost</text>
+</g>
+<!-- TENANT&#45;&gt;SUB_LEASE -->
+<g id="edge10" class="edge">
+<title>TENANT-&gt;SUB_LEASE</title>
+<path fill="none" stroke="#000000" stroke-width="1.2" d="M620.7959,-723C620.7959,-723 935.5585,-723 935.5585,-723 935.5585,-723 935.5585,-836.4794 935.5585,-836.4794"/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="617.5958,-727 617.596,-719 619.196,-719.0001 619.1958,-727.0001 617.5958,-727"/>
+<polyline fill="none" stroke="#000000" stroke-width="1.2" points="616.7959,-723 620.7959,-723.0001 "/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="935.5586,-836.4794 931.9585,-844.4794 935.5585,-840.4794 935.5585,-844.4794 935.5585,-844.4794 935.5585,-844.4794 935.5585,-840.4794 939.1585,-844.4795 935.5586,-836.4794 935.5586,-836.4794"/>
+<text text-anchor="middle" x="945.0643" y="-797.1" font-family="Arial" font-size="9.00" fill="#000000">manages</text>
+</g>
+<!-- EXPENSE -->
+<g id="node12" class="node">
+<title>EXPENSE</title>
+<polygon fill="#ffffff" stroke="#000000" stroke-width="1.5" points="268.3295,-838.7 268.3295,-914.7 348.7875,-914.7 348.7875,-838.7 268.3295,-838.7"/>
+<text text-anchor="middle" x="308.5585" y="-901.7" font-family="Arial" font-size="10.00" fill="#000000">EXPENSE</text>
+<polyline fill="none" stroke="#000000" stroke-width="1.5" points="268.3295,-894.7 348.7875,-894.7 "/>
+<text text-anchor="start" x="276.3295" y="-881.7" font-family="Arial" font-size="10.00" fill="#000000">Total Amount</text>
+<text text-anchor="start" x="276.3295" y="-869.7" font-family="Arial" font-size="10.00" fill="#000000">Date Incurred</text>
+<text text-anchor="start" x="276.3295" y="-857.7" font-family="Arial" font-size="10.00" fill="#000000">Split Policy</text>
+<text text-anchor="start" x="276.3295" y="-845.7" font-family="Arial" font-size="10.00" fill="#000000">Receipt Image</text>
+</g>
+<!-- TENANT&#45;&gt;EXPENSE -->
+<g id="edge14" class="edge">
+<title>TENANT-&gt;EXPENSE</title>
+<path fill="none" stroke="#000000" stroke-width="1.2" d="M504.2077,-723C504.2077,-723 316.2843,-723 316.2843,-723 316.2843,-723 316.2843,-830.3115 316.2843,-830.3115"/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="507.4076,-719 507.4078,-727 505.8078,-727.0001 505.8076,-719.0001 507.4076,-719"/>
+<polyline fill="none" stroke="#000000" stroke-width="1.2" points="508.2077,-723 504.2077,-723.0001 "/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="316.2843,-830.3115 312.6842,-838.3114 316.2843,-834.3115 316.2843,-838.3115 316.2843,-838.3115 316.2843,-838.3115 316.2843,-834.3115 319.8843,-838.3115 316.2843,-830.3115 316.2843,-830.3115"/>
+<text text-anchor="middle" x="341.8102" y="-797.1" font-family="Arial" font-size="9.00" fill="#000000">logs</text>
+</g>
+<!-- EXPENSE_SHARE -->
+<g id="node13" class="node">
+<title>EXPENSE_SHARE</title>
+<polygon fill="#ffffff" stroke="#000000" stroke-width="1.5" points="191.438,-992.5 191.438,-1044.5 299.679,-1044.5 299.679,-992.5 191.438,-992.5"/>
+<text text-anchor="middle" x="245.5585" y="-1031.5" font-family="Arial" font-size="10.00" fill="#000000">EXPENSE SHARE</text>
+<polyline fill="none" stroke="#000000" stroke-width="1.5" points="191.438,-1024.5 299.679,-1024.5 "/>
+<text text-anchor="start" x="199.438" y="-1011.5" font-family="Arial" font-size="10.00" fill="#000000">Owed Amount</text>
+<text text-anchor="start" x="199.438" y="-999.5" font-family="Arial" font-size="10.00" fill="#000000">Status (Paid/Unpaid)</text>
+</g>
+<!-- TENANT&#45;&gt;EXPENSE_SHARE -->
+<g id="edge16" class="edge">
+<title>TENANT-&gt;EXPENSE_SHARE</title>
+<path fill="none" stroke="#000000" stroke-width="1.2" d="M533.8563,-765.0037C533.8563,-765.0037 533.8563,-1019 533.8563,-1019 533.8563,-1019 307.7851,-1019 307.7851,-1019"/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="529.8563,-761.8038 537.8563,-761.8036 537.8563,-763.4036 529.8563,-763.4038 529.8563,-761.8038"/>
+<polyline fill="none" stroke="#000000" stroke-width="1.2" points="533.8563,-761.0037 533.8563,-765.0037 "/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="307.7851,-1019.0001 299.7851,-1015.4 303.7851,-1019 299.7851,-1019 299.7851,-1019 299.7851,-1019 303.7851,-1019 299.7851,-1022.6 307.7851,-1019.0001 307.7851,-1019.0001"/>
+<text text-anchor="middle" x="208.0602" y="-874" font-family="Arial" font-size="9.00" fill="#000000">owes</text>
+</g>
+<!-- PAYMENT -->
+<g id="node14" class="node">
+<title>PAYMENT</title>
+<polygon fill="#ffffff" stroke="#000000" stroke-width="1.5" points="398.392,-844.7 398.392,-908.7 462.725,-908.7 462.725,-844.7 398.392,-844.7"/>
+<text text-anchor="middle" x="430.5585" y="-895.7" font-family="Arial" font-size="10.00" fill="#000000">PAYMENT</text>
+<polyline fill="none" stroke="#000000" stroke-width="1.5" points="398.392,-888.7 462.725,-888.7 "/>
+<text text-anchor="start" x="406.392" y="-875.7" font-family="Arial" font-size="10.00" fill="#000000">Amount</text>
+<text text-anchor="start" x="406.392" y="-863.7" font-family="Arial" font-size="10.00" fill="#000000">Date</text>
+<text text-anchor="start" x="406.392" y="-851.7" font-family="Arial" font-size="10.00" fill="#000000">Note</text>
+</g>
+<!-- TENANT&#45;&gt;PAYMENT -->
+<g id="edge17" class="edge">
+<title>TENANT-&gt;PAYMENT</title>
+<path fill="none" stroke="#000000" stroke-width="1.2" d="M504.1341,-743C504.1341,-743 449.0555,-743 449.0555,-743 449.0555,-743 449.0555,-836.6755 449.0555,-836.6755"/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="507.334,-739 507.3342,-747 505.7342,-747.0001 505.734,-739.0001 507.334,-739"/>
+<polyline fill="none" stroke="#000000" stroke-width="1.2" points="508.1341,-743 504.1341,-743.0001 "/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="449.0556,-836.6755 445.4555,-844.6755 449.0555,-840.6755 449.0555,-844.6755 449.0555,-844.6755 449.0555,-844.6755 449.0555,-840.6755 452.6555,-844.6756 449.0556,-836.6755 449.0556,-836.6755"/>
+<text text-anchor="middle" x="448.0604" y="-797.1" font-family="Arial" font-size="9.00" fill="#000000">transfers</text>
+</g>
+<!-- CHORE_ASSIGN -->
+<g id="node16" class="node">
+<title>CHORE_ASSIGN</title>
+<polygon fill="#ffffff" stroke="#000000" stroke-width="1.5" points="1045.0615,-838.7 1045.0615,-914.7 1166.0555,-914.7 1166.0555,-838.7 1045.0615,-838.7"/>
+<text text-anchor="middle" x="1105.5585" y="-901.7" font-family="Arial" font-size="10.00" fill="#000000">CHORE ASSIGNMENT</text>
+<polyline fill="none" stroke="#000000" stroke-width="1.5" points="1045.0615,-894.7 1166.0555,-894.7 "/>
+<text text-anchor="start" x="1053.0615" y="-881.7" font-family="Arial" font-size="10.00" fill="#000000">Due Date</text>
+<text text-anchor="start" x="1053.0615" y="-869.7" font-family="Arial" font-size="10.00" fill="#000000">Completion Date</text>
+<text text-anchor="start" x="1053.0615" y="-857.7" font-family="Arial" font-size="10.00" fill="#000000">Status</text>
+<text text-anchor="start" x="1053.0615" y="-845.7" font-family="Arial" font-size="10.00" fill="#000000">Proof Image</text>
+</g>
+<!-- TENANT&#45;&gt;CHORE_ASSIGN -->
+<g id="edge19" class="edge">
+<title>TENANT-&gt;CHORE_ASSIGN</title>
+<path fill="none" stroke="#000000" stroke-width="1.2" d="M620.7989,-704C620.7989,-704 1051.924,-704 1051.924,-704 1051.924,-704 1051.924,-830.3723 1051.924,-830.3723"/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="617.5988,-708 617.599,-700 619.199,-700.0001 619.1988,-708.0001 617.5988,-708"/>
+<polyline fill="none" stroke="#000000" stroke-width="1.2" points="616.7989,-704 620.7989,-704.0001 "/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="1051.9241,-830.3723 1048.324,-838.3722 1051.924,-834.3723 1051.924,-838.3723 1051.924,-838.3723 1051.924,-838.3723 1051.924,-834.3723 1055.524,-838.3723 1051.9241,-830.3723 1051.9241,-830.3723"/>
+<text text-anchor="middle" x="1039.0619" y="-797.1" font-family="Arial" font-size="9.00" fill="#000000">completes</text>
+</g>
+<!-- PROPOSAL -->
+<g id="node17" class="node">
+<title>PROPOSAL</title>
+<polygon fill="#ffffff" stroke="#000000" stroke-width="1.5" points="633.6645,-844.7 633.6645,-908.7 717.4525,-908.7 717.4525,-844.7 633.6645,-844.7"/>
+<text text-anchor="middle" x="675.5585" y="-895.7" font-family="Arial" font-size="10.00" fill="#000000">PROPOSAL</text>
+<polyline fill="none" stroke="#000000" stroke-width="1.5" points="633.6645,-888.7 717.4525,-888.7 "/>
+<text text-anchor="start" x="641.6645" y="-875.7" font-family="Arial" font-size="10.00" fill="#000000">Description</text>
+<text text-anchor="start" x="641.6645" y="-863.7" font-family="Arial" font-size="10.00" fill="#000000">Cost Threshold</text>
+<text text-anchor="start" x="641.6645" y="-851.7" font-family="Arial" font-size="10.00" fill="#000000">Status</text>
+</g>
+<!-- TENANT&#45;&gt;PROPOSAL -->
+<g id="edge20" class="edge">
+<title>TENANT-&gt;PROPOSAL</title>
+<path fill="none" stroke="#000000" stroke-width="1.2" d="M597.5397,-764.9921C597.5397,-764.9921 597.5397,-877 597.5397,-877 597.5397,-877 625.3523,-877 625.3523,-877"/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="593.5397,-761.7922 601.5397,-761.792 601.5397,-763.392 593.5397,-763.3922 593.5397,-761.7922"/>
+<polyline fill="none" stroke="#000000" stroke-width="1.2" points="597.5397,-760.9921 597.5398,-764.9921 "/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="625.3523,-877.0001 633.3523,-880.6 629.3523,-877 633.3523,-877 633.3523,-877 633.3523,-877 629.3523,-877 633.3522,-873.4 625.3523,-877.0001 625.3523,-877.0001"/>
+<text text-anchor="middle" x="671.5582" y="-797.1" font-family="Arial" font-size="9.00" fill="#000000">raises</text>
+</g>
+<!-- VOTE -->
+<g id="node18" class="node">
+<title>VOTE</title>
+<polygon fill="#ffffff" stroke="#000000" stroke-width="1.5" points="559.27,-992.5 559.27,-1044.5 645.847,-1044.5 645.847,-992.5 559.27,-992.5"/>
+<text text-anchor="middle" x="602.5585" y="-1031.5" font-family="Arial" font-size="10.00" fill="#000000">VOTE</text>
+<polyline fill="none" stroke="#000000" stroke-width="1.5" points="559.27,-1024.5 645.847,-1024.5 "/>
+<text text-anchor="start" x="567.27" y="-1011.5" font-family="Arial" font-size="10.00" fill="#000000">Approval Status</text>
+<text text-anchor="start" x="567.27" y="-999.5" font-family="Arial" font-size="10.00" fill="#000000">Timestamp</text>
+</g>
+<!-- TENANT&#45;&gt;VOTE -->
+<g id="edge22" class="edge">
+<title>TENANT-&gt;VOTE</title>
+<path fill="none" stroke="#000000" stroke-width="1.2" d="M578.4048,-764.9394C578.4048,-764.9394 578.4048,-984.3597 578.4048,-984.3597"/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="582.4048,-991.5597 574.4048,-991.5597 574.4048,-989.9597 582.4048,-989.9597 582.4048,-991.5597"/>
+<polyline fill="none" stroke="#000000" stroke-width="1.2" points="578.4048,-992.3597 578.4048,-988.3597 "/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="578.4048,-768.9394 582.0048,-760.9394 578.4048,-764.9394 578.4048,-760.9394 578.4048,-760.9394 578.4048,-760.9394 578.4048,-764.9394 574.8048,-760.9394 578.4048,-768.9394 578.4048,-768.9394"/>
+<text text-anchor="middle" x="573.0606" y="-874" font-family="Arial" font-size="9.00" fill="#000000">casts</text>
+</g>
+<!-- GUEST -->
+<g id="node20" class="node">
+<title>GUEST</title>
+<polygon fill="#ffffff" stroke="#000000" stroke-width="1.5" points="767.829,-844.7 767.829,-908.7 843.288,-908.7 843.288,-844.7 767.829,-844.7"/>
+<text text-anchor="middle" x="805.5585" y="-895.7" font-family="Arial" font-size="10.00" fill="#000000">GUEST</text>
+<polyline fill="none" stroke="#000000" stroke-width="1.5" points="767.829,-888.7 843.288,-888.7 "/>
+<text text-anchor="start" x="775.829" y="-875.7" font-family="Arial" font-size="10.00" fill="#000000">Name</text>
+<text text-anchor="start" x="775.829" y="-863.7" font-family="Arial" font-size="10.00" fill="#000000">Arrival Date</text>
+<text text-anchor="start" x="775.829" y="-851.7" font-family="Arial" font-size="10.00" fill="#000000">Is Overnight?</text>
+</g>
+<!-- TENANT&#45;&gt;GUEST -->
+<g id="edge11" class="edge">
+<title>TENANT-&gt;GUEST</title>
+<path fill="none" stroke="#000000" stroke-width="1.2" d="M620.79,-743C620.79,-743 805.5585,-743 805.5585,-743 805.5585,-743 805.5585,-836.6755 805.5585,-836.6755"/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="617.5899,-747 617.5901,-739 619.1901,-739.0001 619.1899,-747.0001 617.5899,-747"/>
+<polyline fill="none" stroke="#000000" stroke-width="1.2" points="616.79,-743 620.79,-743.0001 "/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="805.5586,-836.6755 801.9585,-844.6755 805.5585,-840.6755 805.5585,-844.6755 805.5585,-844.6755 805.5585,-844.6755 805.5585,-840.6755 809.1585,-844.6756 805.5586,-836.6755 805.5586,-836.6755"/>
+<text text-anchor="middle" x="818.3093" y="-797.1" font-family="Arial" font-size="9.00" fill="#000000">invites</text>
+</g>
+<!-- INVENTORY -->
+<g id="node5" class="node">
+<title>INVENTORY</title>
+<polygon fill="#e6f3ff" stroke="#000000" stroke-width="1.5" points="32.556,-235.5 32.556,-311.5 188.561,-311.5 188.561,-235.5 32.556,-235.5"/>
+<text text-anchor="middle" x="110.5585" y="-298.5" font-family="Arial" font-size="10.00" fill="#000000">INVENTORY ITEM (Supertype)</text>
+<polyline fill="none" stroke="#000000" stroke-width="1.5" points="32.556,-291.5 188.561,-291.5 "/>
+<text text-anchor="start" x="40.556" y="-278.5" font-family="Arial" font-size="10.00" fill="#000000">Item Name</text>
+<text text-anchor="start" x="40.556" y="-266.5" font-family="Arial" font-size="10.00" fill="#000000">Total Quantity</text>
+<text text-anchor="start" x="40.556" y="-254.5" font-family="Arial" font-size="10.00" fill="#000000">Category</text>
+<text text-anchor="start" x="40.556" y="-242.5" font-family="Arial" font-size="10.00" fill="#000000">Storage Location</text>
+</g>
+<!-- DISJOINT_INV -->
+<g id="node6" class="node">
+<title>DISJOINT_INV</title>
+<ellipse fill="none" stroke="#000000" stroke-width="1.5" cx="110.5585" cy="-421.3" rx="18" ry="18"/>
+<text text-anchor="middle" x="110.5585" y="-417.7" font-family="Arial" font-size="12.00" fill="#000000">d</text>
+</g>
+<!-- INVENTORY&#45;&gt;DISJOINT_INV -->
+<g id="edge4" class="edge">
+<title>INVENTORY-&gt;DISJOINT_INV</title>
+<path fill="none" stroke="#000000" stroke-width="1.2" d="M110.5585,-311.5622C110.5585,-340.985 110.5585,-380.4083 110.5585,-403.112"/>
+</g>
+<!-- SHARED_ITEM -->
+<g id="node7" class="node">
+<title>SHARED_ITEM</title>
+<polygon fill="#ffffff" stroke="#000000" stroke-width="1.5" points="124.8815,-543.1 124.8815,-595.1 234.2355,-595.1 234.2355,-543.1 124.8815,-543.1"/>
+<text text-anchor="middle" x="179.5585" y="-582.1" font-family="Arial" font-size="10.00" fill="#000000">SHARED ITEM</text>
+<polyline fill="none" stroke="#000000" stroke-width="1.5" points="124.8815,-575.1 234.2355,-575.1 "/>
+<text text-anchor="start" x="132.8815" y="-562.1" font-family="Arial" font-size="10.00" fill="#000000">Low Stock Threshold</text>
+<text text-anchor="start" x="132.8815" y="-550.1" font-family="Arial" font-size="10.00" fill="#000000">Auto-Replenish Flag</text>
+</g>
+<!-- DISJOINT_INV&#45;&gt;SHARED_ITEM -->
+<g id="edge5" class="edge">
+<title>DISJOINT_INV-&gt;SHARED_ITEM</title>
+<path fill="none" stroke="#000000" stroke-width="1.2" d="M115.6267,-438.6488C115.6267,-477.8742 115.6267,-570 115.6267,-570 115.6267,-570 119.2566,-570 124.7865,-570"/>
+</g>
+<!-- DISJOINT_INV&#45;&gt;PERSONAL_ITEM -->
+<g id="edge6" class="edge">
+<title>DISJOINT_INV-&gt;PERSONAL_ITEM</title>
+<path fill="none" stroke="#000000" stroke-width="1.2" d="M106.3718,-438.8848C106.3718,-522.6319 106.3718,-877 106.3718,-877 106.3718,-877 102.7585,-877 97.3385,-877"/>
+</g>
+<!-- PROPERTY&#45;&gt;SHARED_ITEM -->
+<g id="edge12" class="edge">
+<title>PROPERTY-&gt;SHARED_ITEM</title>
+<path fill="none" stroke="#000000" stroke-width="1.2" d="M308.6117,-447C308.6117,-447 211.3982,-447 211.3982,-447 211.3982,-447 211.3982,-534.9065 211.3982,-534.9065"/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="311.8116,-443 311.8118,-451 310.2118,-451.0001 310.2116,-443.0001 311.8116,-443"/>
+<polyline fill="none" stroke="#000000" stroke-width="1.2" points="312.6117,-447 308.6117,-447.0001 "/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="211.3983,-534.9065 207.7982,-542.9064 211.3983,-538.9065 211.3982,-542.9065 211.3982,-542.9065 211.3982,-542.9065 211.3983,-538.9065 214.9982,-542.9065 211.3983,-534.9065 211.3983,-534.9065"/>
+<text text-anchor="middle" x="251.3106" y="-489.5" font-family="Arial" font-size="9.00" fill="#000000">stocks</text>
+</g>
+<!-- LEASE -->
+<g id="node10" class="node">
+<title>LEASE</title>
+<polygon fill="#ffffff" stroke="#000000" stroke-width="1.5" points="435.386,-537.1 435.386,-601.1 549.731,-601.1 549.731,-537.1 435.386,-537.1"/>
+<text text-anchor="middle" x="492.5585" y="-588.1" font-family="Arial" font-size="10.00" fill="#000000">LEASE AGREEMENT</text>
+<polyline fill="none" stroke="#000000" stroke-width="1.5" points="435.386,-581.1 549.731,-581.1 "/>
+<text text-anchor="start" x="443.386" y="-568.1" font-family="Arial" font-size="10.00" fill="#000000">Start Date</text>
+<text text-anchor="start" x="443.386" y="-556.1" font-family="Arial" font-size="10.00" fill="#000000">End Date</text>
+<text text-anchor="start" x="443.386" y="-544.1" font-family="Arial" font-size="10.00" fill="#000000">Document URL</text>
+</g>
+<!-- PROPERTY&#45;&gt;LEASE -->
+<g id="edge8" class="edge">
+<title>PROPERTY-&gt;LEASE</title>
+<path fill="none" stroke="#000000" stroke-width="1.2" d="M391.864,-457.5657C391.864,-457.5657 391.864,-570 391.864,-570 391.864,-570 427.1519,-570 427.1519,-570"/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="387.864,-454.3658 395.864,-454.3656 395.8641,-455.9656 387.8641,-455.9658 387.864,-454.3658"/>
+<polyline fill="none" stroke="#000000" stroke-width="1.2" points="391.864,-453.5657 391.8641,-457.5657 "/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="427.1519,-570.0001 435.152,-573.6 431.1519,-570 435.1519,-570 435.1519,-570 435.1519,-570 431.1519,-570 435.1519,-566.4 427.1519,-570.0001 427.1519,-570.0001"/>
+<text text-anchor="middle" x="465.8116" y="-489.5" font-family="Arial" font-size="9.00" fill="#000000">has</text>
+</g>
+<!-- UTILITY_READING -->
+<g id="node19" class="node">
+<title>UTILITY_READING</title>
+<polygon fill="#ffffff" stroke="#000000" stroke-width="1.5" points="283.781,-531.1 283.781,-607.1 385.336,-607.1 385.336,-531.1 283.781,-531.1"/>
+<text text-anchor="middle" x="334.5585" y="-594.1" font-family="Arial" font-size="10.00" fill="#000000">UTILITY READING</text>
+<polyline fill="none" stroke="#000000" stroke-width="1.5" points="283.781,-587.1 385.336,-587.1 "/>
+<text text-anchor="start" x="291.781" y="-574.1" font-family="Arial" font-size="10.00" fill="#000000">Utility Type</text>
+<text text-anchor="start" x="291.781" y="-562.1" font-family="Arial" font-size="10.00" fill="#000000">Provider Name</text>
+<text text-anchor="start" x="291.781" y="-550.1" font-family="Arial" font-size="10.00" fill="#000000">Meter Value</text>
+<text text-anchor="start" x="291.781" y="-538.1" font-family="Arial" font-size="10.00" fill="#000000">Reading Date</text>
+</g>
+<!-- PROPERTY&#45;&gt;UTILITY_READING -->
+<g id="edge23" class="edge">
+<title>PROPERTY-&gt;UTILITY_READING</title>
+<path fill="none" stroke="#000000" stroke-width="1.2" d="M349.0268,-457.3704C349.0268,-457.3704 349.0268,-523.0723 349.0268,-523.0723"/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="353.0268,-530.2723 345.0268,-530.2723 345.0268,-528.6723 353.0268,-528.6723 353.0268,-530.2723"/>
+<polyline fill="none" stroke="#000000" stroke-width="1.2" points="349.0268,-531.0723 349.0268,-527.0723 "/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="349.0268,-461.3704 352.6268,-453.3704 349.0268,-457.3704 349.0268,-453.3704 349.0268,-453.3704 349.0268,-453.3704 349.0268,-457.3704 345.4267,-453.3704 349.0268,-461.3704 349.0268,-461.3704"/>
+<text text-anchor="middle" x="351.8084" y="-489.5" font-family="Arial" font-size="9.00" fill="#000000">monitors</text>
+</g>
+<!-- LEASE&#45;&gt;TENANT -->
+<g id="edge9" class="edge">
+<title>LEASE-&gt;TENANT</title>
+<path fill="none" stroke="#000000" stroke-width="1.2" d="M529.0868,-609.3415C529.0868,-609.3415 529.0868,-676.7246 529.0868,-676.7246"/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="529.0868,-676.7246 525.4868,-684.7246 529.0868,-680.7246 529.0868,-684.7246 529.0868,-684.7246 529.0868,-684.7246 529.0868,-680.7246 532.6868,-684.7246 529.0868,-676.7246 529.0868,-676.7246"/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="529.0868,-609.3415 532.6868,-601.3415 529.0868,-605.3415 529.0868,-601.3415 529.0868,-601.3415 529.0868,-601.3415 529.0868,-605.3415 525.4868,-601.3415 529.0868,-609.3415 529.0868,-609.3415"/>
+<text text-anchor="middle" x="542.8154" y="-643.3" font-family="Arial" font-size="9.00" fill="#000000">signed by</text>
+</g>
+<!-- EXPENSE&#45;&gt;EXPENSE_SHARE -->
+<g id="edge15" class="edge">
+<title>EXPENSE-&gt;EXPENSE_SHARE</title>
+<path fill="none" stroke="#000000" stroke-width="1.2" d="M284.0043,-919.0731C284.0043,-919.0731 284.0043,-984.2087 284.0043,-984.2087"/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="288.0043,-991.4087 280.0043,-991.4087 280.0043,-989.8087 288.0043,-989.8087 288.0043,-991.4087"/>
+<polyline fill="none" stroke="#000000" stroke-width="1.2" points="284.0043,-992.2087 284.0043,-988.2087 "/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="284.0043,-923.0731 287.6043,-915.0731 284.0043,-919.0731 284.0043,-915.0731 284.0043,-915.0731 284.0043,-915.0731 284.0043,-919.0731 280.4043,-915.0731 284.0043,-923.0731 284.0043,-923.0731"/>
+<text text-anchor="middle" x="310.0605" y="-950.9" font-family="Arial" font-size="9.00" fill="#000000">split into</text>
+</g>
+<!-- CHORE -->
+<g id="node15" class="node">
+<title>CHORE</title>
+<polygon fill="#ffffff" stroke="#000000" stroke-width="1.5" points="1058.7865,-684.9 1058.7865,-760.9 1170.3305,-760.9 1170.3305,-684.9 1058.7865,-684.9"/>
+<text text-anchor="middle" x="1114.5585" y="-747.9" font-family="Arial" font-size="10.00" fill="#000000">CHORE DEFINITION</text>
+<polyline fill="none" stroke="#000000" stroke-width="1.5" points="1058.7865,-740.9 1170.3305,-740.9 "/>
+<text text-anchor="start" x="1066.7865" y="-727.9" font-family="Arial" font-size="10.00" fill="#000000">Task Name</text>
+<text text-anchor="start" x="1066.7865" y="-715.9" font-family="Arial" font-size="10.00" fill="#000000">Description</text>
+<text text-anchor="start" x="1066.7865" y="-703.9" font-family="Arial" font-size="10.00" fill="#000000">Difficulty Weight</text>
+<text text-anchor="start" x="1066.7865" y="-691.9" font-family="Arial" font-size="10.00" fill="#000000">Frequency</text>
+</g>
+<!-- CHORE&#45;&gt;CHORE_ASSIGN -->
+<g id="edge18" class="edge">
+<title>CHORE-&gt;CHORE_ASSIGN</title>
+<path fill="none" stroke="#000000" stroke-width="1.2" d="M1112.421,-764.918C1112.421,-764.918 1112.421,-830.5863 1112.421,-830.5863"/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="1116.421,-837.7863 1108.421,-837.7863 1108.421,-836.1863 1116.421,-836.1863 1116.421,-837.7863"/>
+<polyline fill="none" stroke="#000000" stroke-width="1.2" points="1112.421,-838.5863 1112.421,-834.5863 "/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="1112.421,-768.918 1116.021,-760.918 1112.421,-764.918 1112.421,-760.918 1112.421,-760.918 1112.421,-760.918 1112.421,-764.918 1108.821,-760.918 1112.421,-768.918 1112.421,-768.918"/>
+<text text-anchor="middle" x="1129.8117" y="-797.1" font-family="Arial" font-size="9.00" fill="#000000">spawns</text>
+</g>
+<!-- PROPOSAL&#45;&gt;VOTE -->
+<g id="edge21" class="edge">
+<title>PROPOSAL-&gt;VOTE</title>
+<path fill="none" stroke="#000000" stroke-width="1.2" d="M639.7557,-912.8766C639.7557,-912.8766 639.7557,-984.1453 639.7557,-984.1453"/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="643.7558,-991.3453 635.7558,-991.3453 635.7558,-989.7453 643.7558,-989.7453 643.7558,-991.3453"/>
+<polyline fill="none" stroke="#000000" stroke-width="1.2" points="639.7557,-992.1453 639.7558,-988.1453 "/>
+<polygon fill="#000000" stroke="#000000" stroke-width="1.2" points="639.7558,-916.8766 643.3557,-908.8766 639.7558,-912.8766 639.7557,-908.8766 639.7557,-908.8766 639.7557,-908.8766 639.7558,-912.8766 636.1557,-908.8766 639.7558,-916.8766 639.7558,-916.8766"/>
+<text text-anchor="middle" x="676.3098" y="-950.9" font-family="Arial" font-size="9.00" fill="#000000">receives</text>
+</g>
+</g>
+</svg>
