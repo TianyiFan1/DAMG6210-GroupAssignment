@@ -16,7 +16,6 @@
 
 ![CoHabitant Logical ERD](LogicalERDModel.svg)
 
-> **Note:** Ensure your uploaded SVG file is named `CoHabitant_3NF_Logical_Schema.svg` or update this link accordingly.
 
 ---
 
