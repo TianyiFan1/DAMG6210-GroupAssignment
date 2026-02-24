@@ -16,6 +16,9 @@
 
 ![CoHabitant Logical ERD](LogicalERDModel.svg)
 
+---
+
+![CoHabitant Logical ERD](LogicalERD.svg)
 
 ---
 
