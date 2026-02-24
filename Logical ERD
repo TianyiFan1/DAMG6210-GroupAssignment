@@ -1,0 +1,315 @@
+🏠 CoHabitant: Expense and Intelligent Shared Living Management System
+
+📘 Course: DAMG 6210
+👥 Group Number: 6
+
+👤 Group Members:
+
+Deep Prajapati
+
+Tianyi Fan
+
+Ashfaq Ahmed Mohd
+
+1️⃣ Logical Relational Schema (3NF)
+
+(The diagram below represents our fully normalized Third Normal Form logical schema, including all Primary Keys, Foreign Keys, and Data Types.)
+
+
+Note: Ensure your uploaded SVG file is named CoHabitant_3NF_Logical_Schema.svg or update this link accordingly.
+
+2️⃣ Summary of Changes: Conceptual (P2) ➜ Logical Model (P3)
+
+To convert the conceptual design into a strict 3NF relational schema, the following improvements were made:
+
+🔹 Composite Attributes Removed
+
+To satisfy 1NF, composite attributes were broken into atomic fields:
+
+Name ➜ First_Name, Last_Name (PERSON, GUEST)
+
+Address ➜ Street_Address, City, State, Zip_Code (PROPERTY)
+
+🔹 Inheritance Resolution
+
+Relational databases do not support EER inheritance directly.
+A Table-Per-Type approach was used:
+
+Subtypes: LANDLORD, TENANT, SHARED_ITEM, PERSONAL_ITEM
+
+Each subtype uses the supertype PK as both PK and FK
+
+🔹 Explicit Foreign Keys
+
+All 1:M relationships were implemented using Foreign Keys on the “many” side.
+
+🔹 Standard Data Types
+
+SQL-standard types assigned:
+INT, VARCHAR, DATE, DATETIME, BOOLEAN, DECIMAL(10,2)
+💰 All financial values use DECIMAL(10,2).
+
+3️⃣ Logical Entities, Attributes, and Data Types
+👤 A. User Management
+
+1. PERSON
+
+Person_ID (INT) – PK
+
+First_Name (VARCHAR(50))
+
+Last_Name (VARCHAR(50))
+
+Email (VARCHAR(100))
+
+Phone_Number (VARCHAR(20))
+
+2. LANDLORD
+
+Landlord_ID (INT) – PK, FK → PERSON
+
+Bank_Details (VARCHAR(255))
+
+Tax_ID (VARCHAR(50))
+
+3. TENANT
+
+Tenant_ID (INT) – PK, FK → PERSON
+
+Lease_ID (INT) – FK → LEASE_AGREEMENT
+
+Current_Net_Balance (DECIMAL(10,2))
+
+Emergency_Contact (VARCHAR(100))
+
+Move_In_Date (DATE)
+
+Tenant_Responsibility_Score (INT)
+
+🏢 B. Property & Occupancy
+
+4. PROPERTY
+
+Property_ID (INT) – PK
+
+Landlord_ID (INT) – FK
+
+Street_Address, City, State, Zip_Code
+
+Max_Occupancy (INT)
+
+WiFi_Password (VARCHAR(50))
+
+5. LEASE_AGREEMENT
+
+Lease_ID (INT) – PK
+
+Property_ID (FK)
+
+Start_Date, End_Date
+
+Document_URL
+
+6. SUB_LEASE
+
+SubLease_ID (PK)
+
+Tenant_ID (FK)
+
+Start_Date, End_Date
+
+Pro_Rated_Cost (DECIMAL)
+
+7. GUEST
+
+Guest_ID (PK)
+
+Tenant_ID (FK)
+
+First_Name, Last_Name
+
+Arrival_Date
+
+Is_Overnight (BOOLEAN)
+
+📦 C. Inventory System
+
+8. INVENTORY_ITEM
+
+Item_ID (PK)
+
+Item_Name
+
+Total_Quantity
+
+Category
+
+Storage_Location
+
+9. SHARED_ITEM
+
+Item_ID (PK, FK)
+
+Property_ID (FK)
+
+Low_Stock_Threshold
+
+Auto_Replenish_Flag (BOOLEAN)
+
+10. PERSONAL_ITEM
+
+Item_ID (PK, FK)
+
+Tenant_ID (FK)
+
+Is_Private (BOOLEAN)
+
+💰 D. Financial Management
+
+11. EXPENSE
+
+Expense_ID (PK)
+
+Paid_By_Tenant_ID (FK)
+
+Total_Amount (DECIMAL)
+
+Date_Incurred
+
+Split_Policy
+
+Receipt_Image
+
+12. EXPENSE_SHARE
+
+Share_ID (PK)
+
+Expense_ID (FK)
+
+Owed_By_Tenant_ID (FK)
+
+Owed_Amount (DECIMAL)
+
+Status
+
+13. PAYMENT
+
+Payment_ID (PK)
+
+Payer_Tenant_ID (FK)
+
+Amount (DECIMAL)
+
+Payment_Date
+
+Note
+
+🧹 E. Chores & Governance
+
+14. CHORE_DEFINITION
+
+Chore_ID (PK)
+
+Task_Name
+
+Description
+
+Difficulty_Weight
+
+Frequency
+
+15. CHORE_ASSIGNMENT
+
+Assignment_ID (PK)
+
+Chore_ID (FK)
+
+Assigned_Tenant_ID (FK)
+
+Due_Date
+
+Completion_Date
+
+Status
+
+Proof_Image
+
+16. PROPOSAL
+
+Proposal_ID (PK)
+
+Proposed_By_Tenant_ID (FK)
+
+Description
+
+Cost_Threshold
+
+Status
+
+17. VOTE
+
+Vote_ID (PK)
+
+Proposal_ID (FK)
+
+Tenant_ID (FK)
+
+Approval_Status (BOOLEAN)
+
+Vote_Timestamp (DATETIME)
+
+⚡ F. Utility Analytics
+
+18. UTILITY_READING
+
+Reading_ID (PK)
+
+Property_ID (FK)
+
+Utility_Type
+
+Provider_Name
+
+Meter_Value (DECIMAL)
+
+Reading_Date
+
+4️⃣ Normalization Report (Achieving 3NF)
+✅ First Normal Form (1NF)
+
+All attributes are atomic
+
+Each table has a unique Primary Key
+
+No repeating groups
+Example:
+
+Guests stored in a separate GUEST table
+
+Address and Name split into atomic fields
+
+✅ Second Normal Form (2NF)
+
+All tables use single-column surrogate keys
+
+No composite primary keys
+➡️ Partial dependencies are eliminated.
+
+✅ Third Normal Form (3NF)
+
+No transitive dependencies
+
+Examples:
+
+🔹 Property–Landlord Separation
+PROPERTY stores only Landlord_ID
+Sensitive data like bank details remain in LANDLORD.
+
+🔹 Expense Normalization
+EXPENSE_SHARE references EXPENSE via FK and stores only:
+
+Owed_Amount
+
+Status
+
+No redundant financial data stored.
