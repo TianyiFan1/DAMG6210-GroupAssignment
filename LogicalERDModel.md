@@ -14,7 +14,7 @@
 
 *(The diagram below represents our fully normalized Third Normal Form logical schema, including all Primary Keys, Foreign Keys, and Data Types.)*
 
-![CoHabitant Logical ERD](CoHabitant_3NF_Logical_Schema.svg)
+![CoHabitant Logical ERD](LogicalERDModel.svg)
 
 > **Note:** Ensure your uploaded SVG file is named `CoHabitant_3NF_Logical_Schema.svg` or update this link accordingly.
 
