@@ -45,6 +45,18 @@ SQL-standard types assigned:
 `INT`, `VARCHAR`, `DATE`, `DATETIME`, `BOOLEAN`, `DECIMAL(10,2)`  
 💰 All financial values use `DECIMAL(10,2)`.
 
+### 🔹 Addressing Phase 2 Professor Feedback
+
+**Q: Is the same lease agreement associated with multiple tenants? Is that your intention?** **A:** Yes, this is fully intentional. In a shared living environment, multiple roommates (Tenants) typically co-sign or are associated with a single master `LEASE_AGREEMENT`. Therefore, the relationship is structured as 1 Lease to Many Tenants.
+
+**Q: The relationship between Utility Reading and Property is reversed.** **A:** This was corrected in Phase 3. The `PROPERTY` now acts as the parent entity (1), and `UTILITY_READING` is the child entity (M), ensuring that multiple monthly readings correctly map to a single property via the `Property_ID` foreign key.
+
+**Q: Chore Weight Factor appears in both Tenant and Chore Definition. Is there a reason for this duplication?** **A:** This was a conceptual duplication that has been resolved in the 3NF logical model. `CHORE_DEFINITION` now exclusively holds `Difficulty_Weight` (the nature of the task), while `TENANT` holds a `Tenant_Responsibility_Score` (an individual's completion standing).
+
+**Q: The relationship between Chore Definition and Assignment is reversed.** **A:** This has been corrected. One `CHORE_DEFINITION` (e.g., "Clean Kitchen") can generate many `CHORE_ASSIGNMENT` instances over time. The assignment table now correctly holds the `Chore_ID` foreign key.
+
+**Q: What is the purpose of the Proposal entity? Does one Vote apply to many tenants?** **A:** The `PROPOSAL` entity establishes a democratic governance system for the household, allowing roommates to suggest major shared purchases or rules (e.g., items over $50). It creates a digital paper trail for decision-making. Regarding votes: one Vote does *not* apply to many tenants. The relationship is 1 Tenant to Many Votes, and 1 Proposal to Many Votes. Each `VOTE` record belongs to exactly one Tenant and applies to exactly one Proposal, ensuring complete accountability of who approved or rejected specific items.
+
 ---
 
 ## 3️⃣ Logical Entities, Attributes, and Data Types
@@ -241,3 +253,20 @@ Sensitive data like bank details remain in `LANDLORD`.
 - `Status`
 
 No redundant financial data stored.
+
+---
+
+## 5️⃣ Clarification of Complex Multi-Role Relationships (Addressing Circular Dependency Concerns)
+
+In optimizing the logical schema, specific multi-table relationships may visually appear circular in an ERD but are strictly necessary to enforce distinct business roles without data loss.
+
+### 1. The Expense and Expense Share Relationship (`TENANT` ↔ `EXPENSE` ↔ `EXPENSE_SHARE`)
+* While `EXPENSE_SHARE` is linked to an `EXPENSE`, and both link to `TENANT`, these relationships serve two entirely different financial roles. 
+* `EXPENSE` contains `Paid_By_Tenant_ID`. This tracks the **Creditor** (the single roommate who used their credit card to pay the store).
+* `EXPENSE_SHARE` contains `Owed_By_Tenant_ID`. This tracks the **Debtors** (the other roommates who owe money for that receipt).
+* **Conclusion:** If the relation between `TENANT` and `EXPENSE_SHARE` is removed, the system would know an expense is being split, but would completely lose the identity of *who owes the money*. Both foreign keys are mandatory.
+
+### 2. The Proposal and Vote Relationship (`TENANT` ↔ `PROPOSAL` ↔ `VOTE`)
+* Similarly, `PROPOSAL` contains `Proposed_By_Tenant_ID` to track the **Creator** of the idea.
+* `VOTE` contains `Tenant_ID` to track the **Voter**. 
+* **Conclusion:** If the `Tenant_ID` is removed from the `VOTE` table, all votes become anonymous. To enforce democratic accountability, the system must record exactly which roommate cast which vote.
