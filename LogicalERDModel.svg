@@ -1,0 +1,679 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1937pt" height="1592pt" viewBox="0.00 0.00 1937.01 1592.00">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 1588)">
+<title>CoHabitant_3NF_Logical_Schema</title>
+<polygon fill="#ffffff" stroke="transparent" points="-4,4 -4,-1588 1933.0144,-1588 1933.0144,4 -4,4"/>
+<!-- PERSON -->
+<g id="node1" class="node">
+<title>PERSON</title>
+<polygon fill="#e6f3ff" stroke="transparent" points="1767.0144,-910 1767.0144,-932 1929.0144,-932 1929.0144,-910 1767.0144,-910"/>
+<polygon fill="none" stroke="#000000" points="1767.0144,-910 1767.0144,-932 1929.0144,-932 1929.0144,-910 1767.0144,-910"/>
+<text text-anchor="start" x="1826.9024" y="-919" font-family="Arial" font-weight="bold" font-size="10.00" fill="#000000">PERSON</text>
+<polygon fill="none" stroke="#000000" points="1767.0144,-888 1767.0144,-910 1847.0144,-910 1847.0144,-888 1767.0144,-888"/>
+<text text-anchor="start" x="1772.0109" y="-897" font-family="Arial" text-decoration="underline" font-size="10.00" fill="#000000">Person_ID (PK)</text>
+<polygon fill="none" stroke="#000000" points="1847.0144,-888 1847.0144,-910 1929.0144,-910 1929.0144,-888 1847.0144,-888"/>
+<text text-anchor="start" x="1852.0144" y="-896" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="1767.0144,-866 1767.0144,-888 1847.0144,-888 1847.0144,-866 1767.0144,-866"/>
+<text text-anchor="start" x="1772.0144" y="-874" font-family="Arial" font-size="10.00" fill="#000000">First_Name</text>
+<polygon fill="none" stroke="#000000" points="1847.0144,-866 1847.0144,-888 1929.0144,-888 1929.0144,-866 1847.0144,-866"/>
+<text text-anchor="start" x="1852.0144" y="-874" font-family="Arial" font-size="10.00" fill="#000000">VARCHAR(50)</text>
+<polygon fill="none" stroke="#000000" points="1767.0144,-844 1767.0144,-866 1847.0144,-866 1847.0144,-844 1767.0144,-844"/>
+<text text-anchor="start" x="1772.0144" y="-852" font-family="Arial" font-size="10.00" fill="#000000">Last_Name</text>
+<polygon fill="none" stroke="#000000" points="1847.0144,-844 1847.0144,-866 1929.0144,-866 1929.0144,-844 1847.0144,-844"/>
+<text text-anchor="start" x="1852.0144" y="-852" font-family="Arial" font-size="10.00" fill="#000000">VARCHAR(50)</text>
+<polygon fill="none" stroke="#000000" points="1767.0144,-822 1767.0144,-844 1847.0144,-844 1847.0144,-822 1767.0144,-822"/>
+<text text-anchor="start" x="1772.0144" y="-830" font-family="Arial" font-size="10.00" fill="#000000">Email</text>
+<polygon fill="none" stroke="#000000" points="1847.0144,-822 1847.0144,-844 1929.0144,-844 1929.0144,-822 1847.0144,-822"/>
+<text text-anchor="start" x="1851.9054" y="-830" font-family="Arial" font-size="10.00" fill="#000000">VARCHAR(100)</text>
+<polygon fill="none" stroke="#000000" points="1767.0144,-800 1767.0144,-822 1847.0144,-822 1847.0144,-800 1767.0144,-800"/>
+<text text-anchor="start" x="1772.0054" y="-808" font-family="Arial" font-size="10.00" fill="#000000">Phone_Number</text>
+<polygon fill="none" stroke="#000000" points="1847.0144,-800 1847.0144,-822 1929.0144,-822 1929.0144,-800 1847.0144,-800"/>
+<text text-anchor="start" x="1852.0144" y="-808" font-family="Arial" font-size="10.00" fill="#000000">VARCHAR(20)</text>
+</g>
+<!-- LANDLORD -->
+<g id="node2" class="node">
+<title>LANDLORD</title>
+<polygon fill="#ffffff" stroke="transparent" points="1496.0144,-1014 1496.0144,-1036 1680.0144,-1036 1680.0144,-1014 1496.0144,-1014"/>
+<polygon fill="none" stroke="#000000" points="1496.0144,-1014 1496.0144,-1036 1680.0144,-1036 1680.0144,-1014 1496.0144,-1014"/>
+<text text-anchor="start" x="1560.7934" y="-1023" font-family="Arial" font-weight="bold" font-size="10.00" fill="#000000">LANDLORD</text>
+<polygon fill="none" stroke="#000000" points="1496.0144,-992 1496.0144,-1014 1598.0144,-1014 1598.0144,-992 1496.0144,-992"/>
+<text text-anchor="start" x="1500.6189" y="-1001" font-family="Arial" text-decoration="underline" font-size="10.00" fill="#000000">Landlord_ID (PK/FK)</text>
+<polygon fill="none" stroke="#000000" points="1598.0144,-992 1598.0144,-1014 1680.0144,-1014 1680.0144,-992 1598.0144,-992"/>
+<text text-anchor="start" x="1603.0144" y="-1000" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="1496.0144,-970 1496.0144,-992 1598.0144,-992 1598.0144,-970 1496.0144,-970"/>
+<text text-anchor="start" x="1501.0144" y="-978" font-family="Arial" font-size="10.00" fill="#000000">Bank_Details</text>
+<polygon fill="none" stroke="#000000" points="1598.0144,-970 1598.0144,-992 1680.0144,-992 1680.0144,-970 1598.0144,-970"/>
+<text text-anchor="start" x="1602.9054" y="-978" font-family="Arial" font-size="10.00" fill="#000000">VARCHAR(255)</text>
+<polygon fill="none" stroke="#000000" points="1496.0144,-948 1496.0144,-970 1598.0144,-970 1598.0144,-948 1496.0144,-948"/>
+<text text-anchor="start" x="1501.0144" y="-956" font-family="Arial" font-size="10.00" fill="#000000">Tax_ID</text>
+<polygon fill="none" stroke="#000000" points="1598.0144,-948 1598.0144,-970 1680.0144,-970 1680.0144,-948 1598.0144,-948"/>
+<text text-anchor="start" x="1603.0144" y="-956" font-family="Arial" font-size="10.00" fill="#000000">VARCHAR(50)</text>
+</g>
+<!-- LANDLORD&#45;&gt;PERSON -->
+<g id="edge1" class="edge">
+<title>LANDLORD-&gt;PERSON</title>
+<path fill="none" stroke="#000000" d="M1588.0144,-947.7744C1588.0144,-925.226 1588.0144,-902.5 1588.0144,-902.5 1588.0144,-902.5 1761.8183,-902.5 1761.8183,-902.5"/>
+<polygon fill="#000000" stroke="#000000" points="1765.8182,-897.5 1765.8184,-907.5 1763.8184,-907.5001 1763.8182,-897.5001 1765.8182,-897.5"/>
+<polyline fill="none" stroke="#000000" points="1766.8183,-902.5 1761.8183,-902.5001 "/>
+</g>
+<!-- TENANT -->
+<g id="node3" class="node">
+<title>TENANT</title>
+<polygon fill="#ffffff" stroke="transparent" points="678.0144,-863 678.0144,-885 900.0144,-885 900.0144,-863 678.0144,-863"/>
+<polygon fill="none" stroke="#000000" points="678.0144,-863 678.0144,-885 900.0144,-885 900.0144,-863 678.0144,-863"/>
+<text text-anchor="start" x="769.0174" y="-872" font-family="Arial" font-weight="bold" font-size="10.00" fill="#000000">TENANT</text>
+<polygon fill="none" stroke="#000000" points="678.0144,-841 678.0144,-863 818.0144,-863 818.0144,-841 678.0144,-841"/>
+<text text-anchor="start" x="683.0144" y="-850" font-family="Arial" text-decoration="underline" font-size="10.00" fill="#000000">Tenant_ID (PK/FK)</text>
+<polygon fill="none" stroke="#000000" points="818.0144,-841 818.0144,-863 900.0144,-863 900.0144,-841 818.0144,-841"/>
+<text text-anchor="start" x="823.0144" y="-849" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="678.0144,-819 678.0144,-841 818.0144,-841 818.0144,-819 678.0144,-819"/>
+<text text-anchor="start" x="683.0144" y="-827" font-family="Arial" font-size="10.00" fill="#000000">Lease_ID (FK)</text>
+<polygon fill="none" stroke="#000000" points="818.0144,-819 818.0144,-841 900.0144,-841 900.0144,-819 818.0144,-819"/>
+<text text-anchor="start" x="823.0144" y="-827" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="678.0144,-797 678.0144,-819 818.0144,-819 818.0144,-797 678.0144,-797"/>
+<text text-anchor="start" x="683.0144" y="-805" font-family="Arial" font-size="10.00" fill="#000000">Current_Net_Balance</text>
+<polygon fill="none" stroke="#000000" points="818.0144,-797 818.0144,-819 900.0144,-819 900.0144,-797 818.0144,-797"/>
+<text text-anchor="start" x="823.0144" y="-805" font-family="Arial" font-size="10.00" fill="#000000">DECIMAL(10,2)</text>
+<polygon fill="none" stroke="#000000" points="678.0144,-775 678.0144,-797 818.0144,-797 818.0144,-775 678.0144,-775"/>
+<text text-anchor="start" x="683.0144" y="-783" font-family="Arial" font-size="10.00" fill="#000000">Emergency_Contact</text>
+<polygon fill="none" stroke="#000000" points="818.0144,-775 818.0144,-797 900.0144,-797 900.0144,-775 818.0144,-775"/>
+<text text-anchor="start" x="822.9054" y="-783" font-family="Arial" font-size="10.00" fill="#000000">VARCHAR(100)</text>
+<polygon fill="none" stroke="#000000" points="678.0144,-753 678.0144,-775 818.0144,-775 818.0144,-753 678.0144,-753"/>
+<text text-anchor="start" x="683.0144" y="-761" font-family="Arial" font-size="10.00" fill="#000000">Move_In_Date</text>
+<polygon fill="none" stroke="#000000" points="818.0144,-753 818.0144,-775 900.0144,-775 900.0144,-753 818.0144,-753"/>
+<text text-anchor="start" x="823.0144" y="-761" font-family="Arial" font-size="10.00" fill="#000000">DATE</text>
+<polygon fill="none" stroke="#000000" points="678.0144,-731 678.0144,-753 818.0144,-753 818.0144,-731 678.0144,-731"/>
+<text text-anchor="start" x="683.0009" y="-739" font-family="Arial" font-size="10.00" fill="#000000">Tenant_Responsibility_Score</text>
+<polygon fill="none" stroke="#000000" points="818.0144,-731 818.0144,-753 900.0144,-753 900.0144,-731 818.0144,-731"/>
+<text text-anchor="start" x="823.0144" y="-739" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+</g>
+<!-- TENANT&#45;&gt;PERSON -->
+<g id="edge2" class="edge">
+<title>TENANT-&gt;PERSON</title>
+<path fill="none" stroke="#000000" d="M900.3444,-836.5C900.3444,-836.5 1761.8978,-836.5 1761.8978,-836.5"/>
+<polygon fill="#000000" stroke="#000000" points="1765.8977,-831.5 1765.8979,-841.5 1763.8979,-841.5001 1763.8977,-831.5001 1765.8977,-831.5"/>
+<polyline fill="none" stroke="#000000" points="1766.8978,-836.5 1761.8978,-836.5001 "/>
+</g>
+<!-- LEASE_AGREEMENT -->
+<g id="node5" class="node">
+<title>LEASE_AGREEMENT</title>
+<polygon fill="#ffffff" stroke="transparent" points="987.5144,-1180 987.5144,-1202 1154.5144,-1202 1154.5144,-1180 987.5144,-1180"/>
+<polygon fill="none" stroke="#000000" points="987.5144,-1180 987.5144,-1202 1154.5144,-1202 1154.5144,-1180 987.5144,-1180"/>
+<text text-anchor="start" x="1020.4519" y="-1189" font-family="Arial" font-weight="bold" font-size="10.00" fill="#000000">LEASE_AGREEMENT</text>
+<polygon fill="none" stroke="#000000" points="987.5144,-1158 987.5144,-1180 1072.5144,-1180 1072.5144,-1158 987.5144,-1158"/>
+<text text-anchor="start" x="992.5144" y="-1167" font-family="Arial" text-decoration="underline" font-size="10.00" fill="#000000">Lease_ID (PK)</text>
+<polygon fill="none" stroke="#000000" points="1072.5144,-1158 1072.5144,-1180 1154.5144,-1180 1154.5144,-1158 1072.5144,-1158"/>
+<text text-anchor="start" x="1077.5144" y="-1166" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="987.5144,-1136 987.5144,-1158 1072.5144,-1158 1072.5144,-1136 987.5144,-1136"/>
+<text text-anchor="start" x="992.2369" y="-1144" font-family="Arial" font-size="10.00" fill="#000000">Property_ID (FK)</text>
+<polygon fill="none" stroke="#000000" points="1072.5144,-1136 1072.5144,-1158 1154.5144,-1158 1154.5144,-1136 1072.5144,-1136"/>
+<text text-anchor="start" x="1077.5144" y="-1144" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="987.5144,-1114 987.5144,-1136 1072.5144,-1136 1072.5144,-1114 987.5144,-1114"/>
+<text text-anchor="start" x="992.5144" y="-1122" font-family="Arial" font-size="10.00" fill="#000000">Start_Date</text>
+<polygon fill="none" stroke="#000000" points="1072.5144,-1114 1072.5144,-1136 1154.5144,-1136 1154.5144,-1114 1072.5144,-1114"/>
+<text text-anchor="start" x="1077.5144" y="-1122" font-family="Arial" font-size="10.00" fill="#000000">DATE</text>
+<polygon fill="none" stroke="#000000" points="987.5144,-1092 987.5144,-1114 1072.5144,-1114 1072.5144,-1092 987.5144,-1092"/>
+<text text-anchor="start" x="992.5144" y="-1100" font-family="Arial" font-size="10.00" fill="#000000">End_Date</text>
+<polygon fill="none" stroke="#000000" points="1072.5144,-1092 1072.5144,-1114 1154.5144,-1114 1154.5144,-1092 1072.5144,-1092"/>
+<text text-anchor="start" x="1077.5144" y="-1100" font-family="Arial" font-size="10.00" fill="#000000">DATE</text>
+<polygon fill="none" stroke="#000000" points="987.5144,-1070 987.5144,-1092 1072.5144,-1092 1072.5144,-1070 987.5144,-1070"/>
+<text text-anchor="start" x="992.5144" y="-1078" font-family="Arial" font-size="10.00" fill="#000000">Document_URL</text>
+<polygon fill="none" stroke="#000000" points="1072.5144,-1070 1072.5144,-1092 1154.5144,-1092 1154.5144,-1070 1072.5144,-1070"/>
+<text text-anchor="start" x="1077.4054" y="-1078" font-family="Arial" font-size="10.00" fill="#000000">VARCHAR(255)</text>
+</g>
+<!-- TENANT&#45;&gt;LEASE_AGREEMENT -->
+<g id="edge7" class="edge">
+<title>TENANT-&gt;LEASE_AGREEMENT</title>
+<path fill="none" stroke="#000000" d="M887.0144,-895.2004C887.0144,-895.2004 887.0144,-1097.5 887.0144,-1097.5 887.0144,-1097.5 981.8191,-1097.5 981.8191,-1097.5"/>
+<polygon fill="#000000" stroke="#000000" points="887.0145,-895.2004 891.5144,-885.2003 887.0144,-890.2004 887.0144,-885.2004 887.0144,-885.2004 887.0144,-885.2004 887.0144,-890.2004 882.5144,-885.2004 887.0145,-895.2004 887.0145,-895.2004"/>
+<polygon fill="#000000" stroke="#000000" points="985.819,-1092.5 985.8192,-1102.5 983.8192,-1102.5001 983.819,-1092.5001 985.819,-1092.5"/>
+<polyline fill="none" stroke="#000000" points="986.8191,-1097.5 981.8191,-1097.5001 "/>
+</g>
+<!-- PROPERTY -->
+<g id="node4" class="node">
+<title>PROPERTY</title>
+<polygon fill="#ffffff" stroke="transparent" points="1241.0144,-1126 1241.0144,-1148 1409.0144,-1148 1409.0144,-1126 1241.0144,-1126"/>
+<polygon fill="none" stroke="#000000" points="1241.0144,-1126 1241.0144,-1148 1409.0144,-1148 1409.0144,-1126 1241.0144,-1126"/>
+<text text-anchor="start" x="1297.5134" y="-1135" font-family="Arial" font-weight="bold" font-size="10.00" fill="#000000">PROPERTY</text>
+<polygon fill="none" stroke="#000000" points="1241.0144,-1104 1241.0144,-1126 1327.0144,-1126 1327.0144,-1104 1241.0144,-1104"/>
+<text text-anchor="start" x="1245.9569" y="-1113" font-family="Arial" text-decoration="underline" font-size="10.00" fill="#000000">Property_ID (PK)</text>
+<polygon fill="none" stroke="#000000" points="1327.0144,-1104 1327.0144,-1126 1409.0144,-1126 1409.0144,-1104 1327.0144,-1104"/>
+<text text-anchor="start" x="1332.0144" y="-1112" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="1241.0144,-1082 1241.0144,-1104 1327.0144,-1104 1327.0144,-1082 1241.0144,-1082"/>
+<text text-anchor="start" x="1245.6774" y="-1090" font-family="Arial" font-size="10.00" fill="#000000">Landlord_ID (FK)</text>
+<polygon fill="none" stroke="#000000" points="1327.0144,-1082 1327.0144,-1104 1409.0144,-1104 1409.0144,-1082 1327.0144,-1082"/>
+<text text-anchor="start" x="1332.0144" y="-1090" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="1241.0144,-1060 1241.0144,-1082 1327.0144,-1082 1327.0144,-1060 1241.0144,-1060"/>
+<text text-anchor="start" x="1246.0144" y="-1068" font-family="Arial" font-size="10.00" fill="#000000">Street_Address</text>
+<polygon fill="none" stroke="#000000" points="1327.0144,-1060 1327.0144,-1082 1409.0144,-1082 1409.0144,-1060 1327.0144,-1060"/>
+<text text-anchor="start" x="1331.9054" y="-1068" font-family="Arial" font-size="10.00" fill="#000000">VARCHAR(150)</text>
+<polygon fill="none" stroke="#000000" points="1241.0144,-1038 1241.0144,-1060 1327.0144,-1060 1327.0144,-1038 1241.0144,-1038"/>
+<text text-anchor="start" x="1246.0144" y="-1046" font-family="Arial" font-size="10.00" fill="#000000">City</text>
+<polygon fill="none" stroke="#000000" points="1327.0144,-1038 1327.0144,-1060 1409.0144,-1060 1409.0144,-1038 1327.0144,-1038"/>
+<text text-anchor="start" x="1332.0144" y="-1046" font-family="Arial" font-size="10.00" fill="#000000">VARCHAR(50)</text>
+<polygon fill="none" stroke="#000000" points="1241.0144,-1016 1241.0144,-1038 1327.0144,-1038 1327.0144,-1016 1241.0144,-1016"/>
+<text text-anchor="start" x="1246.0144" y="-1024" font-family="Arial" font-size="10.00" fill="#000000">State</text>
+<polygon fill="none" stroke="#000000" points="1327.0144,-1016 1327.0144,-1038 1409.0144,-1038 1409.0144,-1016 1327.0144,-1016"/>
+<text text-anchor="start" x="1332.0144" y="-1024" font-family="Arial" font-size="10.00" fill="#000000">VARCHAR(50)</text>
+<polygon fill="none" stroke="#000000" points="1241.0144,-994 1241.0144,-1016 1327.0144,-1016 1327.0144,-994 1241.0144,-994"/>
+<text text-anchor="start" x="1246.0144" y="-1002" font-family="Arial" font-size="10.00" fill="#000000">Zip_Code</text>
+<polygon fill="none" stroke="#000000" points="1327.0144,-994 1327.0144,-1016 1409.0144,-1016 1409.0144,-994 1327.0144,-994"/>
+<text text-anchor="start" x="1332.0144" y="-1002" font-family="Arial" font-size="10.00" fill="#000000">VARCHAR(20)</text>
+<polygon fill="none" stroke="#000000" points="1241.0144,-972 1241.0144,-994 1327.0144,-994 1327.0144,-972 1241.0144,-972"/>
+<text text-anchor="start" x="1246.0144" y="-980" font-family="Arial" font-size="10.00" fill="#000000">Max_Occupancy</text>
+<polygon fill="none" stroke="#000000" points="1327.0144,-972 1327.0144,-994 1409.0144,-994 1409.0144,-972 1327.0144,-972"/>
+<text text-anchor="start" x="1332.0144" y="-980" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="1241.0144,-950 1241.0144,-972 1327.0144,-972 1327.0144,-950 1241.0144,-950"/>
+<text text-anchor="start" x="1246.0144" y="-958" font-family="Arial" font-size="10.00" fill="#000000">WiFi_Password</text>
+<polygon fill="none" stroke="#000000" points="1327.0144,-950 1327.0144,-972 1409.0144,-972 1409.0144,-950 1327.0144,-950"/>
+<text text-anchor="start" x="1332.0144" y="-958" font-family="Arial" font-size="10.00" fill="#000000">VARCHAR(50)</text>
+</g>
+<!-- PROPERTY&#45;&gt;LANDLORD -->
+<g id="edge5" class="edge">
+<title>PROPERTY-&gt;LANDLORD</title>
+<path fill="none" stroke="#000000" d="M1419.3145,-993C1419.3145,-993 1491.0009,-993 1491.0009,-993"/>
+<polygon fill="#000000" stroke="#000000" points="1486.0009,-993 1496.0009,-997.5 1491.0009,-993 1496.0009,-993 1496.0009,-993 1496.0009,-993 1491.0009,-993 1496.0009,-988.5 1486.0009,-993 1486.0009,-993"/>
+<polygon fill="#000000" stroke="#000000" points="1410.3144,-998 1410.3145,-988 1412.3145,-988 1412.3144,-998 1410.3144,-998"/>
+<polyline fill="none" stroke="#000000" points="1409.3145,-993 1414.3145,-993 "/>
+</g>
+<!-- LEASE_AGREEMENT&#45;&gt;PROPERTY -->
+<g id="edge6" class="edge">
+<title>LEASE_AGREEMENT-&gt;PROPERTY</title>
+<path fill="none" stroke="#000000" d="M1164.1997,-1109C1164.1997,-1109 1235.8439,-1109 1235.8439,-1109"/>
+<polygon fill="#000000" stroke="#000000" points="1230.8439,-1109 1240.8439,-1113.5 1235.8439,-1109 1240.8439,-1109 1240.8439,-1109 1240.8439,-1109 1235.8439,-1109 1240.8438,-1104.5 1230.8439,-1109 1230.8439,-1109"/>
+<polygon fill="#000000" stroke="#000000" points="1155.1997,-1114 1155.1997,-1104 1157.1997,-1104 1157.1997,-1114 1155.1997,-1114"/>
+<polyline fill="none" stroke="#000000" points="1154.1997,-1109 1159.1997,-1109 "/>
+</g>
+<!-- SUB_LEASE -->
+<g id="node6" class="node">
+<title>SUB_LEASE</title>
+<polygon fill="#ffffff" stroke="transparent" points="321,-1103 321,-1125 494,-1125 494,-1103 321,-1103"/>
+<polygon fill="none" stroke="#000000" points="321,-1103 321,-1125 494,-1125 494,-1103 321,-1103"/>
+<text text-anchor="start" x="378.3245" y="-1112" font-family="Arial" font-weight="bold" font-size="10.00" fill="#000000">SUB_LEASE</text>
+<polygon fill="none" stroke="#000000" points="321,-1081 321,-1103 414,-1103 414,-1081 321,-1081"/>
+<text text-anchor="start" x="325.8225" y="-1090" font-family="Arial" text-decoration="underline" font-size="10.00" fill="#000000">SubLease_ID (PK)</text>
+<polygon fill="none" stroke="#000000" points="414,-1081 414,-1103 494,-1103 494,-1081 414,-1081"/>
+<text text-anchor="start" x="419" y="-1089" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="321,-1059 321,-1081 414,-1081 414,-1059 321,-1059"/>
+<text text-anchor="start" x="326" y="-1067" font-family="Arial" font-size="10.00" fill="#000000">Tenant_ID (FK)</text>
+<polygon fill="none" stroke="#000000" points="414,-1059 414,-1081 494,-1081 494,-1059 414,-1059"/>
+<text text-anchor="start" x="419" y="-1067" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="321,-1037 321,-1059 414,-1059 414,-1037 321,-1037"/>
+<text text-anchor="start" x="326" y="-1045" font-family="Arial" font-size="10.00" fill="#000000">Start_Date</text>
+<polygon fill="none" stroke="#000000" points="414,-1037 414,-1059 494,-1059 494,-1037 414,-1037"/>
+<text text-anchor="start" x="419" y="-1045" font-family="Arial" font-size="10.00" fill="#000000">DATE</text>
+<polygon fill="none" stroke="#000000" points="321,-1015 321,-1037 414,-1037 414,-1015 321,-1015"/>
+<text text-anchor="start" x="326" y="-1023" font-family="Arial" font-size="10.00" fill="#000000">End_Date</text>
+<polygon fill="none" stroke="#000000" points="414,-1015 414,-1037 494,-1037 494,-1015 414,-1015"/>
+<text text-anchor="start" x="419" y="-1023" font-family="Arial" font-size="10.00" fill="#000000">DATE</text>
+<polygon fill="none" stroke="#000000" points="321,-993 321,-1015 414,-1015 414,-993 321,-993"/>
+<text text-anchor="start" x="326" y="-1001" font-family="Arial" font-size="10.00" fill="#000000">Pro_Rated_Cost</text>
+<polygon fill="none" stroke="#000000" points="414,-993 414,-1015 494,-1015 494,-993 414,-993"/>
+<text text-anchor="start" x="418.7215" y="-1001" font-family="Arial" font-size="10.00" fill="#000000">DECIMAL(10,2)</text>
+</g>
+<!-- SUB_LEASE&#45;&gt;TENANT -->
+<g id="edge8" class="edge">
+<title>SUB_LEASE-&gt;TENANT</title>
+<path fill="none" stroke="#000000" d="M503.8219,-1010C503.8219,-1010 685.0144,-1010 685.0144,-1010 685.0144,-1010 685.0144,-890.2322 685.0144,-890.2322"/>
+<polygon fill="#000000" stroke="#000000" points="503.8219,-1010.0001 493.822,-1005.5 498.8219,-1010 493.8219,-1010 493.8219,-1010 493.8219,-1010 498.8219,-1010 493.8219,-1014.5 503.8219,-1010.0001 503.8219,-1010.0001"/>
+<polygon fill="#000000" stroke="#000000" points="680.0144,-886.2323 690.0144,-886.2321 690.0145,-888.2321 680.0145,-888.2323 680.0144,-886.2323"/>
+<polyline fill="none" stroke="#000000" points="685.0144,-885.2322 685.0145,-890.2322 "/>
+</g>
+<!-- GUEST -->
+<g id="node7" class="node">
+<title>GUEST</title>
+<polygon fill="#ffffff" stroke="transparent" points="330,-928 330,-950 484,-950 484,-928 330,-928"/>
+<polygon fill="none" stroke="#000000" points="330,-928 330,-950 484,-950 484,-928 330,-928"/>
+<text text-anchor="start" x="389.7775" y="-937" font-family="Arial" font-weight="bold" font-size="10.00" fill="#000000">GUEST</text>
+<polygon fill="none" stroke="#000000" points="330,-906 330,-928 408,-928 408,-906 330,-906"/>
+<text text-anchor="start" x="335" y="-915" font-family="Arial" text-decoration="underline" font-size="10.00" fill="#000000">Guest_ID (PK)</text>
+<polygon fill="none" stroke="#000000" points="408,-906 408,-928 484,-928 484,-906 408,-906"/>
+<text text-anchor="start" x="413" y="-914" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="330,-884 330,-906 408,-906 408,-884 330,-884"/>
+<text text-anchor="start" x="334.552" y="-892" font-family="Arial" font-size="10.00" fill="#000000">Tenant_ID (FK)</text>
+<polygon fill="none" stroke="#000000" points="408,-884 408,-906 484,-906 484,-884 408,-884"/>
+<text text-anchor="start" x="413" y="-892" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="330,-862 330,-884 408,-884 408,-862 330,-862"/>
+<text text-anchor="start" x="335" y="-870" font-family="Arial" font-size="10.00" fill="#000000">First_Name</text>
+<polygon fill="none" stroke="#000000" points="408,-862 408,-884 484,-884 484,-862 408,-862"/>
+<text text-anchor="start" x="412.6705" y="-870" font-family="Arial" font-size="10.00" fill="#000000">VARCHAR(50)</text>
+<polygon fill="none" stroke="#000000" points="330,-840 330,-862 408,-862 408,-840 330,-840"/>
+<text text-anchor="start" x="335" y="-848" font-family="Arial" font-size="10.00" fill="#000000">Last_Name</text>
+<polygon fill="none" stroke="#000000" points="408,-840 408,-862 484,-862 484,-840 408,-840"/>
+<text text-anchor="start" x="412.6705" y="-848" font-family="Arial" font-size="10.00" fill="#000000">VARCHAR(50)</text>
+<polygon fill="none" stroke="#000000" points="330,-818 330,-840 408,-840 408,-818 330,-818"/>
+<text text-anchor="start" x="335" y="-826" font-family="Arial" font-size="10.00" fill="#000000">Arrival_Date</text>
+<polygon fill="none" stroke="#000000" points="408,-818 408,-840 484,-840 484,-818 408,-818"/>
+<text text-anchor="start" x="413" y="-826" font-family="Arial" font-size="10.00" fill="#000000">DATE</text>
+<polygon fill="none" stroke="#000000" points="330,-796 330,-818 408,-818 408,-796 330,-796"/>
+<text text-anchor="start" x="335" y="-804" font-family="Arial" font-size="10.00" fill="#000000">Is_Overnight</text>
+<polygon fill="none" stroke="#000000" points="408,-796 408,-818 484,-818 484,-796 408,-796"/>
+<text text-anchor="start" x="413" y="-804" font-family="Arial" font-size="10.00" fill="#000000">BOOLEAN</text>
+</g>
+<!-- GUEST&#45;&gt;TENANT -->
+<g id="edge9" class="edge">
+<title>GUEST-&gt;TENANT</title>
+<path fill="none" stroke="#000000" d="M494.3063,-840.5C494.3063,-840.5 672.7902,-840.5 672.7902,-840.5"/>
+<polygon fill="#000000" stroke="#000000" points="667.7902,-840.5 677.7902,-845 672.7902,-840.5 677.7902,-840.5 677.7902,-840.5 677.7902,-840.5 672.7902,-840.5 677.7902,-836 667.7902,-840.5 667.7902,-840.5"/>
+<polygon fill="#000000" stroke="#000000" points="485.3063,-845.5 485.3063,-835.5 487.3063,-835.5 487.3063,-845.5 485.3063,-845.5"/>
+<polyline fill="none" stroke="#000000" points="484.3063,-840.5 489.3063,-840.5 "/>
+</g>
+<!-- INVENTORY_ITEM -->
+<g id="node8" class="node">
+<title>INVENTORY_ITEM</title>
+<polygon fill="#e6f3ff" stroke="transparent" points="704.0144,-1435 704.0144,-1457 874.0144,-1457 874.0144,-1435 704.0144,-1435"/>
+<polygon fill="none" stroke="#000000" points="704.0144,-1435 704.0144,-1457 874.0144,-1457 874.0144,-1435 704.0144,-1435"/>
+<text text-anchor="start" x="745.1264" y="-1444" font-family="Arial" font-weight="bold" font-size="10.00" fill="#000000">INVENTORY_ITEM</text>
+<polygon fill="none" stroke="#000000" points="704.0144,-1413 704.0144,-1435 792.0144,-1435 792.0144,-1413 704.0144,-1413"/>
+<text text-anchor="start" x="709.0144" y="-1422" font-family="Arial" text-decoration="underline" font-size="10.00" fill="#000000">Item_ID (PK)</text>
+<polygon fill="none" stroke="#000000" points="792.0144,-1413 792.0144,-1435 874.0144,-1435 874.0144,-1413 792.0144,-1413"/>
+<text text-anchor="start" x="797.0144" y="-1421" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="704.0144,-1391 704.0144,-1413 792.0144,-1413 792.0144,-1391 704.0144,-1391"/>
+<text text-anchor="start" x="709.0144" y="-1399" font-family="Arial" font-size="10.00" fill="#000000">Item_Name</text>
+<polygon fill="none" stroke="#000000" points="792.0144,-1391 792.0144,-1413 874.0144,-1413 874.0144,-1391 792.0144,-1391"/>
+<text text-anchor="start" x="796.9054" y="-1399" font-family="Arial" font-size="10.00" fill="#000000">VARCHAR(100)</text>
+<polygon fill="none" stroke="#000000" points="704.0144,-1369 704.0144,-1391 792.0144,-1391 792.0144,-1369 704.0144,-1369"/>
+<text text-anchor="start" x="709.0144" y="-1377" font-family="Arial" font-size="10.00" fill="#000000">Total_Quantity</text>
+<polygon fill="none" stroke="#000000" points="792.0144,-1369 792.0144,-1391 874.0144,-1391 874.0144,-1369 792.0144,-1369"/>
+<text text-anchor="start" x="797.0144" y="-1377" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="704.0144,-1347 704.0144,-1369 792.0144,-1369 792.0144,-1347 704.0144,-1347"/>
+<text text-anchor="start" x="709.0144" y="-1355" font-family="Arial" font-size="10.00" fill="#000000">Category</text>
+<polygon fill="none" stroke="#000000" points="792.0144,-1347 792.0144,-1369 874.0144,-1369 874.0144,-1347 792.0144,-1347"/>
+<text text-anchor="start" x="797.0144" y="-1355" font-family="Arial" font-size="10.00" fill="#000000">VARCHAR(50)</text>
+<polygon fill="none" stroke="#000000" points="704.0144,-1325 704.0144,-1347 792.0144,-1347 792.0144,-1325 704.0144,-1325"/>
+<text text-anchor="start" x="708.8319" y="-1333" font-family="Arial" font-size="10.00" fill="#000000">Storage_Location</text>
+<polygon fill="none" stroke="#000000" points="792.0144,-1325 792.0144,-1347 874.0144,-1347 874.0144,-1325 792.0144,-1325"/>
+<text text-anchor="start" x="796.9054" y="-1333" font-family="Arial" font-size="10.00" fill="#000000">VARCHAR(100)</text>
+</g>
+<!-- SHARED_ITEM -->
+<g id="node9" class="node">
+<title>SHARED_ITEM</title>
+<polygon fill="#ffffff" stroke="transparent" points="324,-1562 324,-1584 490,-1584 490,-1562 324,-1562"/>
+<polygon fill="none" stroke="#000000" points="324,-1562 324,-1584 490,-1584 490,-1562 324,-1562"/>
+<text text-anchor="start" x="371.4455" y="-1571" font-family="Arial" font-weight="bold" font-size="10.00" fill="#000000">SHARED_ITEM</text>
+<polygon fill="none" stroke="#000000" points="324,-1540 324,-1562 432,-1562 432,-1540 324,-1540"/>
+<text text-anchor="start" x="329" y="-1549" font-family="Arial" text-decoration="underline" font-size="10.00" fill="#000000">Item_ID (PK/FK)</text>
+<polygon fill="none" stroke="#000000" points="432,-1540 432,-1562 490,-1562 490,-1540 432,-1540"/>
+<text text-anchor="start" x="437" y="-1548" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="324,-1518 324,-1540 432,-1540 432,-1518 324,-1518"/>
+<text text-anchor="start" x="329" y="-1526" font-family="Arial" font-size="10.00" fill="#000000">Property_ID (FK)</text>
+<polygon fill="none" stroke="#000000" points="432,-1518 432,-1540 490,-1540 490,-1518 432,-1518"/>
+<text text-anchor="start" x="437" y="-1526" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="324,-1496 324,-1518 432,-1518 432,-1496 324,-1496"/>
+<text text-anchor="start" x="328.543" y="-1504" font-family="Arial" font-size="10.00" fill="#000000">Low_Stock_Threshold</text>
+<polygon fill="none" stroke="#000000" points="432,-1496 432,-1518 490,-1518 490,-1496 432,-1496"/>
+<text text-anchor="start" x="437" y="-1504" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="324,-1474 324,-1496 432,-1496 432,-1474 324,-1474"/>
+<text text-anchor="start" x="329" y="-1482" font-family="Arial" font-size="10.00" fill="#000000">Auto_Replenish_Flag</text>
+<polygon fill="none" stroke="#000000" points="432,-1474 432,-1496 490,-1496 490,-1474 432,-1474"/>
+<text text-anchor="start" x="436.8285" y="-1482" font-family="Arial" font-size="10.00" fill="#000000">BOOLEAN</text>
+</g>
+<!-- SHARED_ITEM&#45;&gt;PROPERTY -->
+<g id="edge10" class="edge">
+<title>SHARED_ITEM-&gt;PROPERTY</title>
+<path fill="none" stroke="#000000" d="M500.0868,-1529C500.0868,-1529 1325.0144,-1529 1325.0144,-1529 1325.0144,-1529 1325.0144,-1153.1652 1325.0144,-1153.1652"/>
+<polygon fill="#000000" stroke="#000000" points="500.0868,-1529.0001 490.0868,-1524.5 495.0868,-1529 490.0868,-1529 490.0868,-1529 490.0868,-1529 495.0868,-1529 490.0867,-1533.5 500.0868,-1529.0001 500.0868,-1529.0001"/>
+<polygon fill="#000000" stroke="#000000" points="1320.0144,-1149.1653 1330.0144,-1149.1651 1330.0145,-1151.1651 1320.0145,-1151.1653 1320.0144,-1149.1653"/>
+<polyline fill="none" stroke="#000000" points="1325.0144,-1148.1652 1325.0145,-1153.1652 "/>
+</g>
+<!-- SHARED_ITEM&#45;&gt;INVENTORY_ITEM -->
+<g id="edge3" class="edge">
+<title>SHARED_ITEM-&gt;INVENTORY_ITEM</title>
+<path fill="none" stroke="#000000" d="M484.0144,-1473.7289C484.0144,-1457.494 484.0144,-1444 484.0144,-1444 484.0144,-1444 698.6493,-1444 698.6493,-1444"/>
+<polygon fill="#000000" stroke="#000000" points="702.6492,-1439 702.6494,-1449 700.6494,-1449.0001 700.6492,-1439.0001 702.6492,-1439"/>
+<polyline fill="none" stroke="#000000" points="703.6493,-1444 698.6493,-1444.0001 "/>
+</g>
+<!-- PERSONAL_ITEM -->
+<g id="node10" class="node">
+<title>PERSONAL_ITEM</title>
+<polygon fill="#ffffff" stroke="transparent" points="337,-1409 337,-1431 478,-1431 478,-1409 337,-1409"/>
+<polygon fill="none" stroke="#000000" points="337,-1409 337,-1431 478,-1431 478,-1409 337,-1409"/>
+<text text-anchor="start" x="365.5515" y="-1418" font-family="Arial" font-weight="bold" font-size="10.00" fill="#000000">PERSONAL_ITEM</text>
+<polygon fill="none" stroke="#000000" points="337,-1387 337,-1409 420,-1409 420,-1387 337,-1387"/>
+<text text-anchor="start" x="341.8325" y="-1396" font-family="Arial" text-decoration="underline" font-size="10.00" fill="#000000">Item_ID (PK/FK)</text>
+<polygon fill="none" stroke="#000000" points="420,-1387 420,-1409 478,-1409 478,-1387 420,-1387"/>
+<text text-anchor="start" x="425" y="-1395" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="337,-1365 337,-1387 420,-1387 420,-1365 337,-1365"/>
+<text text-anchor="start" x="342" y="-1373" font-family="Arial" font-size="10.00" fill="#000000">Tenant_ID (FK)</text>
+<polygon fill="none" stroke="#000000" points="420,-1365 420,-1387 478,-1387 478,-1365 420,-1365"/>
+<text text-anchor="start" x="425" y="-1373" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="337,-1343 337,-1365 420,-1365 420,-1343 337,-1343"/>
+<text text-anchor="start" x="342" y="-1351" font-family="Arial" font-size="10.00" fill="#000000">Is_Private</text>
+<polygon fill="none" stroke="#000000" points="420,-1343 420,-1365 478,-1365 478,-1343 420,-1343"/>
+<text text-anchor="start" x="424.8285" y="-1351" font-family="Arial" font-size="10.00" fill="#000000">BOOLEAN</text>
+</g>
+<!-- PERSONAL_ITEM&#45;&gt;TENANT -->
+<g id="edge11" class="edge">
+<title>PERSONAL_ITEM-&gt;TENANT</title>
+<path fill="none" stroke="#000000" d="M487.818,-1372.3333C487.818,-1372.3333 698.0144,-1372.3333 698.0144,-1372.3333 698.0144,-1372.3333 698.0144,-890.2849 698.0144,-890.2849"/>
+<polygon fill="#000000" stroke="#000000" points="487.818,-1372.3334 477.818,-1367.8333 482.818,-1372.3334 477.818,-1372.3333 477.818,-1372.3333 477.818,-1372.3333 482.818,-1372.3334 477.818,-1376.8333 487.818,-1372.3334 487.818,-1372.3334"/>
+<polygon fill="#000000" stroke="#000000" points="693.0144,-886.285 703.0144,-886.2848 703.0145,-888.2848 693.0145,-888.285 693.0144,-886.285"/>
+<polyline fill="none" stroke="#000000" points="698.0144,-885.2849 698.0145,-890.2849 "/>
+</g>
+<!-- PERSONAL_ITEM&#45;&gt;INVENTORY_ITEM -->
+<g id="edge4" class="edge">
+<title>PERSONAL_ITEM-&gt;INVENTORY_ITEM</title>
+<path fill="none" stroke="#000000" d="M477.5125,-1401.6667C477.5125,-1401.6667 698.8878,-1401.6667 698.8878,-1401.6667"/>
+<polygon fill="#000000" stroke="#000000" points="702.8877,-1396.6667 702.8879,-1406.6667 700.8879,-1406.6667 700.8877,-1396.6667 702.8877,-1396.6667"/>
+<polyline fill="none" stroke="#000000" points="703.8878,-1401.6667 698.8878,-1401.6668 "/>
+</g>
+<!-- EXPENSE -->
+<g id="node11" class="node">
+<title>EXPENSE</title>
+<polygon fill="#ffffff" stroke="transparent" points="306,-351 306,-373 509,-373 509,-351 306,-351"/>
+<polygon fill="none" stroke="#000000" points="306,-351 306,-373 509,-373 509,-351 306,-351"/>
+<text text-anchor="start" x="383.8835" y="-360" font-family="Arial" font-weight="bold" font-size="10.00" fill="#000000">EXPENSE</text>
+<polygon fill="none" stroke="#000000" points="306,-329 306,-351 427,-351 427,-329 306,-329"/>
+<text text-anchor="start" x="311" y="-338" font-family="Arial" text-decoration="underline" font-size="10.00" fill="#000000">Expense_ID (PK)</text>
+<polygon fill="none" stroke="#000000" points="427,-329 427,-351 509,-351 509,-329 427,-329"/>
+<text text-anchor="start" x="432" y="-337" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="306,-307 306,-329 427,-329 427,-307 306,-307"/>
+<text text-anchor="start" x="310.6555" y="-315" font-family="Arial" font-size="10.00" fill="#000000">Paid_By_Tenant_ID (FK)</text>
+<polygon fill="none" stroke="#000000" points="427,-307 427,-329 509,-329 509,-307 427,-307"/>
+<text text-anchor="start" x="432" y="-315" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="306,-285 306,-307 427,-307 427,-285 306,-285"/>
+<text text-anchor="start" x="311" y="-293" font-family="Arial" font-size="10.00" fill="#000000">Total_Amount</text>
+<polygon fill="none" stroke="#000000" points="427,-285 427,-307 509,-307 509,-285 427,-285"/>
+<text text-anchor="start" x="432" y="-293" font-family="Arial" font-size="10.00" fill="#000000">DECIMAL(10,2)</text>
+<polygon fill="none" stroke="#000000" points="306,-263 306,-285 427,-285 427,-263 306,-263"/>
+<text text-anchor="start" x="311" y="-271" font-family="Arial" font-size="10.00" fill="#000000">Date_Incurred</text>
+<polygon fill="none" stroke="#000000" points="427,-263 427,-285 509,-285 509,-263 427,-263"/>
+<text text-anchor="start" x="432" y="-271" font-family="Arial" font-size="10.00" fill="#000000">DATE</text>
+<polygon fill="none" stroke="#000000" points="306,-241 306,-263 427,-263 427,-241 306,-241"/>
+<text text-anchor="start" x="311" y="-249" font-family="Arial" font-size="10.00" fill="#000000">Split_Policy</text>
+<polygon fill="none" stroke="#000000" points="427,-241 427,-263 509,-263 509,-241 427,-241"/>
+<text text-anchor="start" x="432" y="-249" font-family="Arial" font-size="10.00" fill="#000000">VARCHAR(50)</text>
+<polygon fill="none" stroke="#000000" points="306,-219 306,-241 427,-241 427,-219 306,-219"/>
+<text text-anchor="start" x="311" y="-227" font-family="Arial" font-size="10.00" fill="#000000">Receipt_Image</text>
+<polygon fill="none" stroke="#000000" points="427,-219 427,-241 509,-241 509,-219 427,-219"/>
+<text text-anchor="start" x="431.891" y="-227" font-family="Arial" font-size="10.00" fill="#000000">VARCHAR(255)</text>
+</g>
+<!-- EXPENSE&#45;&gt;TENANT -->
+<g id="edge13" class="edge">
+<title>EXPENSE-&gt;TENANT</title>
+<path fill="none" stroke="#000000" d="M518.85,-296C518.85,-296 688.0144,-296 688.0144,-296 688.0144,-296 688.0144,-725.7941 688.0144,-725.7941"/>
+<polygon fill="#000000" stroke="#000000" points="518.85,-296.0001 508.85,-291.5 513.85,-296 508.85,-296 508.85,-296 508.85,-296 513.85,-296 508.8499,-300.5 518.85,-296.0001 518.85,-296.0001"/>
+<polygon fill="#000000" stroke="#000000" points="693.0144,-729.7942 683.0144,-729.794 683.0145,-727.794 693.0145,-727.7942 693.0144,-729.7942"/>
+<polyline fill="none" stroke="#000000" points="688.0144,-730.7941 688.0145,-725.7941 "/>
+<text text-anchor="middle" x="599.0072" y="-372.5" font-family="Arial" font-size="9.00" fill="#000000">Pays_Merchant</text>
+<text text-anchor="middle" x="599.0072" y="-361.7" font-family="Arial" font-size="9.00" fill="#000000">(Creditor)</text>
+</g>
+<!-- EXPENSE_SHARE -->
+<g id="node12" class="node">
+<title>EXPENSE_SHARE</title>
+<polygon fill="#ffffff" stroke="transparent" points=".5,-450 .5,-472 207.5,-472 207.5,-450 .5,-450"/>
+<polygon fill="none" stroke="#000000" points=".5,-450 .5,-472 207.5,-472 207.5,-450 .5,-450"/>
+<text text-anchor="start" x="60.3815" y="-459" font-family="Arial" font-weight="bold" font-size="10.00" fill="#000000">EXPENSE_SHARE</text>
+<polygon fill="none" stroke="#000000" points=".5,-428 .5,-450 127.5,-450 127.5,-428 .5,-428"/>
+<text text-anchor="start" x="5.5" y="-437" font-family="Arial" text-decoration="underline" font-size="10.00" fill="#000000">Share_ID (PK)</text>
+<polygon fill="none" stroke="#000000" points="127.5,-428 127.5,-450 207.5,-450 207.5,-428 127.5,-428"/>
+<text text-anchor="start" x="132.5" y="-436" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points=".5,-406 .5,-428 127.5,-428 127.5,-406 .5,-406"/>
+<text text-anchor="start" x="5.5" y="-414" font-family="Arial" font-size="10.00" fill="#000000">Expense_ID (FK)</text>
+<polygon fill="none" stroke="#000000" points="127.5,-406 127.5,-428 207.5,-428 207.5,-406 127.5,-406"/>
+<text text-anchor="start" x="132.5" y="-414" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points=".5,-384 .5,-406 127.5,-406 127.5,-384 .5,-384"/>
+<text text-anchor="start" x="5.1005" y="-392" font-family="Arial" font-size="10.00" fill="#000000">Owed_By_Tenant_ID (FK)</text>
+<polygon fill="none" stroke="#000000" points="127.5,-384 127.5,-406 207.5,-406 207.5,-384 127.5,-384"/>
+<text text-anchor="start" x="132.5" y="-392" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points=".5,-362 .5,-384 127.5,-384 127.5,-362 .5,-362"/>
+<text text-anchor="start" x="5.5" y="-370" font-family="Arial" font-size="10.00" fill="#000000">Owed_Amount</text>
+<polygon fill="none" stroke="#000000" points="127.5,-362 127.5,-384 207.5,-384 207.5,-362 127.5,-362"/>
+<text text-anchor="start" x="132.2215" y="-370" font-family="Arial" font-size="10.00" fill="#000000">DECIMAL(10,2)</text>
+<polygon fill="none" stroke="#000000" points=".5,-340 .5,-362 127.5,-362 127.5,-340 .5,-340"/>
+<text text-anchor="start" x="5.5" y="-348" font-family="Arial" font-size="10.00" fill="#000000">Status</text>
+<polygon fill="none" stroke="#000000" points="127.5,-340 127.5,-362 207.5,-362 207.5,-340 127.5,-340"/>
+<text text-anchor="start" x="132.5" y="-348" font-family="Arial" font-size="10.00" fill="#000000">VARCHAR(20)</text>
+</g>
+<!-- EXPENSE_SHARE&#45;&gt;TENANT -->
+<g id="edge15" class="edge">
+<title>EXPENSE_SHARE-&gt;TENANT</title>
+<path fill="none" stroke="#000000" d="M192.0144,-482.0698C192.0144,-482.0698 192.0144,-744.5 192.0144,-744.5 192.0144,-744.5 672.7732,-744.5 672.7732,-744.5"/>
+<polygon fill="#000000" stroke="#000000" points="192.0145,-482.0698 196.5144,-472.0697 192.0144,-477.0698 192.0144,-472.0698 192.0144,-472.0698 192.0144,-472.0698 192.0144,-477.0698 187.5144,-472.0698 192.0145,-482.0698 192.0145,-482.0698"/>
+<polygon fill="#000000" stroke="#000000" points="676.7731,-739.5 676.7733,-749.5 674.7733,-749.5001 674.7731,-739.5001 676.7731,-739.5"/>
+<polyline fill="none" stroke="#000000" points="677.7732,-744.5 672.7732,-744.5001 "/>
+<text text-anchor="middle" x="407" y="-472.5" font-family="Arial" font-size="9.00" fill="#000000">Owes_Share</text>
+<text text-anchor="middle" x="407" y="-461.7" font-family="Arial" font-size="9.00" fill="#000000">(Debtor)</text>
+</g>
+<!-- EXPENSE_SHARE&#45;&gt;EXPENSE -->
+<g id="edge14" class="edge">
+<title>EXPENSE_SHARE-&gt;EXPENSE</title>
+<path fill="none" stroke="#000000" d="M217.0986,-356.5C217.0986,-356.5 300.4097,-356.5 300.4097,-356.5"/>
+<polygon fill="#000000" stroke="#000000" points="295.4097,-356.5 305.4097,-361 300.4097,-356.5 305.4097,-356.5 305.4097,-356.5 305.4097,-356.5 300.4097,-356.5 305.4097,-352 295.4097,-356.5 295.4097,-356.5"/>
+<polygon fill="#000000" stroke="#000000" points="208.0986,-361.5 208.0986,-351.5 210.0986,-351.5 210.0986,-361.5 208.0986,-361.5"/>
+<polyline fill="none" stroke="#000000" points="207.0986,-356.5 212.0986,-356.5 "/>
+</g>
+<!-- PAYMENT -->
+<g id="node13" class="node">
+<title>PAYMENT</title>
+<polygon fill="#ffffff" stroke="transparent" points="311,-1278 311,-1300 503,-1300 503,-1278 311,-1278"/>
+<polygon fill="none" stroke="#000000" points="311,-1278 311,-1300 503,-1300 503,-1278 311,-1278"/>
+<text text-anchor="start" x="382.8335" y="-1287" font-family="Arial" font-weight="bold" font-size="10.00" fill="#000000">PAYMENT</text>
+<polygon fill="none" stroke="#000000" points="311,-1256 311,-1278 421,-1278 421,-1256 311,-1256"/>
+<text text-anchor="start" x="316" y="-1265" font-family="Arial" text-decoration="underline" font-size="10.00" fill="#000000">Payment_ID (PK)</text>
+<polygon fill="none" stroke="#000000" points="421,-1256 421,-1278 503,-1278 503,-1256 421,-1256"/>
+<text text-anchor="start" x="426" y="-1264" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="311,-1234 311,-1256 421,-1256 421,-1234 311,-1234"/>
+<text text-anchor="start" x="315.7145" y="-1242" font-family="Arial" font-size="10.00" fill="#000000">Payer_Tenant_ID (FK)</text>
+<polygon fill="none" stroke="#000000" points="421,-1234 421,-1256 503,-1256 503,-1234 421,-1234"/>
+<text text-anchor="start" x="426" y="-1242" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="311,-1212 311,-1234 421,-1234 421,-1212 311,-1212"/>
+<text text-anchor="start" x="316" y="-1220" font-family="Arial" font-size="10.00" fill="#000000">Amount</text>
+<polygon fill="none" stroke="#000000" points="421,-1212 421,-1234 503,-1234 503,-1212 421,-1212"/>
+<text text-anchor="start" x="426" y="-1220" font-family="Arial" font-size="10.00" fill="#000000">DECIMAL(10,2)</text>
+<polygon fill="none" stroke="#000000" points="311,-1190 311,-1212 421,-1212 421,-1190 311,-1190"/>
+<text text-anchor="start" x="316" y="-1198" font-family="Arial" font-size="10.00" fill="#000000">Payment_Date</text>
+<polygon fill="none" stroke="#000000" points="421,-1190 421,-1212 503,-1212 503,-1190 421,-1190"/>
+<text text-anchor="start" x="426" y="-1198" font-family="Arial" font-size="10.00" fill="#000000">DATE</text>
+<polygon fill="none" stroke="#000000" points="311,-1168 311,-1190 421,-1190 421,-1168 311,-1168"/>
+<text text-anchor="start" x="316" y="-1176" font-family="Arial" font-size="10.00" fill="#000000">Note</text>
+<polygon fill="none" stroke="#000000" points="421,-1168 421,-1190 503,-1190 503,-1168 421,-1168"/>
+<text text-anchor="start" x="425.891" y="-1176" font-family="Arial" font-size="10.00" fill="#000000">VARCHAR(255)</text>
+</g>
+<!-- PAYMENT&#45;&gt;TENANT -->
+<g id="edge16" class="edge">
+<title>PAYMENT-&gt;TENANT</title>
+<path fill="none" stroke="#000000" d="M513.1543,-1185C513.1543,-1185 691.0144,-1185 691.0144,-1185 691.0144,-1185 691.0144,-890.2013 691.0144,-890.2013"/>
+<polygon fill="#000000" stroke="#000000" points="513.1543,-1185.0001 503.1544,-1180.5 508.1543,-1185 503.1543,-1185 503.1543,-1185 503.1543,-1185 508.1543,-1185 503.1543,-1189.5 513.1543,-1185.0001 513.1543,-1185.0001"/>
+<polygon fill="#000000" stroke="#000000" points="686.0144,-886.2014 696.0144,-886.2012 696.0145,-888.2012 686.0145,-888.2014 686.0144,-886.2014"/>
+<polyline fill="none" stroke="#000000" points="691.0144,-885.2013 691.0145,-890.2013 "/>
+</g>
+<!-- CHORE_DEFINITION -->
+<g id="node14" class="node">
+<title>CHORE_DEFINITION</title>
+<polygon fill="#ffffff" stroke="transparent" points="706.0144,-132 706.0144,-154 872.0144,-154 872.0144,-132 706.0144,-132"/>
+<polygon fill="none" stroke="#000000" points="706.0144,-132 706.0144,-154 872.0144,-154 872.0144,-132 706.0144,-132"/>
+<text text-anchor="start" x="739.8524" y="-141" font-family="Arial" font-weight="bold" font-size="10.00" fill="#000000">CHORE_DEFINITION</text>
+<polygon fill="none" stroke="#000000" points="706.0144,-110 706.0144,-132 790.0144,-132 790.0144,-110 706.0144,-110"/>
+<text text-anchor="start" x="711.0144" y="-119" font-family="Arial" text-decoration="underline" font-size="10.00" fill="#000000">Chore_ID (PK)</text>
+<polygon fill="none" stroke="#000000" points="790.0144,-110 790.0144,-132 872.0144,-132 872.0144,-110 790.0144,-110"/>
+<text text-anchor="start" x="795.0144" y="-118" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="706.0144,-88 706.0144,-110 790.0144,-110 790.0144,-88 706.0144,-88"/>
+<text text-anchor="start" x="711.0144" y="-96" font-family="Arial" font-size="10.00" fill="#000000">Task_Name</text>
+<polygon fill="none" stroke="#000000" points="790.0144,-88 790.0144,-110 872.0144,-110 872.0144,-88 790.0144,-88"/>
+<text text-anchor="start" x="794.9054" y="-96" font-family="Arial" font-size="10.00" fill="#000000">VARCHAR(100)</text>
+<polygon fill="none" stroke="#000000" points="706.0144,-66 706.0144,-88 790.0144,-88 790.0144,-66 706.0144,-66"/>
+<text text-anchor="start" x="711.0144" y="-74" font-family="Arial" font-size="10.00" fill="#000000">Description</text>
+<polygon fill="none" stroke="#000000" points="790.0144,-66 790.0144,-88 872.0144,-88 872.0144,-66 790.0144,-66"/>
+<text text-anchor="start" x="794.9054" y="-74" font-family="Arial" font-size="10.00" fill="#000000">VARCHAR(255)</text>
+<polygon fill="none" stroke="#000000" points="706.0144,-44 706.0144,-66 790.0144,-66 790.0144,-44 706.0144,-44"/>
+<text text-anchor="start" x="710.7919" y="-52" font-family="Arial" font-size="10.00" fill="#000000">Difficulty_Weight</text>
+<polygon fill="none" stroke="#000000" points="790.0144,-44 790.0144,-66 872.0144,-66 872.0144,-44 790.0144,-44"/>
+<text text-anchor="start" x="795.0144" y="-52" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="706.0144,-22 706.0144,-44 790.0144,-44 790.0144,-22 706.0144,-22"/>
+<text text-anchor="start" x="711.0144" y="-30" font-family="Arial" font-size="10.00" fill="#000000">Frequency</text>
+<polygon fill="none" stroke="#000000" points="790.0144,-22 790.0144,-44 872.0144,-44 872.0144,-22 790.0144,-22"/>
+<text text-anchor="start" x="795.0144" y="-30" font-family="Arial" font-size="10.00" fill="#000000">VARCHAR(50)</text>
+</g>
+<!-- CHORE_ASSIGNMENT -->
+<g id="node15" class="node">
+<title>CHORE_ASSIGNMENT</title>
+<polygon fill="#ffffff" stroke="transparent" points="304,-154 304,-176 511,-176 511,-154 304,-154"/>
+<polygon fill="none" stroke="#000000" points="304,-154 304,-176 511,-176 511,-154 304,-154"/>
+<text text-anchor="start" x="353.613" y="-163" font-family="Arial" font-weight="bold" font-size="10.00" fill="#000000">CHORE_ASSIGNMENT</text>
+<polygon fill="none" stroke="#000000" points="304,-132 304,-154 429,-154 429,-132 304,-132"/>
+<text text-anchor="start" x="309" y="-141" font-family="Arial" text-decoration="underline" font-size="10.00" fill="#000000">Assignment_ID (PK)</text>
+<polygon fill="none" stroke="#000000" points="429,-132 429,-154 511,-154 511,-132 429,-132"/>
+<text text-anchor="start" x="434" y="-140" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="304,-110 304,-132 429,-132 429,-110 304,-110"/>
+<text text-anchor="start" x="309" y="-118" font-family="Arial" font-size="10.00" fill="#000000">Chore_ID (FK)</text>
+<polygon fill="none" stroke="#000000" points="429,-110 429,-132 511,-132 511,-110 429,-110"/>
+<text text-anchor="start" x="434" y="-118" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="304,-88 304,-110 429,-110 429,-88 304,-88"/>
+<text text-anchor="start" x="308.7105" y="-96" font-family="Arial" font-size="10.00" fill="#000000">Assigned_Tenant_ID (FK)</text>
+<polygon fill="none" stroke="#000000" points="429,-88 429,-110 511,-110 511,-88 429,-88"/>
+<text text-anchor="start" x="434" y="-96" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="304,-66 304,-88 429,-88 429,-66 304,-66"/>
+<text text-anchor="start" x="309" y="-74" font-family="Arial" font-size="10.00" fill="#000000">Due_Date</text>
+<polygon fill="none" stroke="#000000" points="429,-66 429,-88 511,-88 511,-66 429,-66"/>
+<text text-anchor="start" x="434" y="-74" font-family="Arial" font-size="10.00" fill="#000000">DATE</text>
+<polygon fill="none" stroke="#000000" points="304,-44 304,-66 429,-66 429,-44 304,-44"/>
+<text text-anchor="start" x="309" y="-52" font-family="Arial" font-size="10.00" fill="#000000">Completion_Date</text>
+<polygon fill="none" stroke="#000000" points="429,-44 429,-66 511,-66 511,-44 429,-44"/>
+<text text-anchor="start" x="434" y="-52" font-family="Arial" font-size="10.00" fill="#000000">DATE</text>
+<polygon fill="none" stroke="#000000" points="304,-22 304,-44 429,-44 429,-22 304,-22"/>
+<text text-anchor="start" x="309" y="-30" font-family="Arial" font-size="10.00" fill="#000000">Status</text>
+<polygon fill="none" stroke="#000000" points="429,-22 429,-44 511,-44 511,-22 429,-22"/>
+<text text-anchor="start" x="434" y="-30" font-family="Arial" font-size="10.00" fill="#000000">VARCHAR(20)</text>
+<polygon fill="none" stroke="#000000" points="304,0 304,-22 429,-22 429,0 304,0"/>
+<text text-anchor="start" x="309" y="-8" font-family="Arial" font-size="10.00" fill="#000000">Proof_Image</text>
+<polygon fill="none" stroke="#000000" points="429,0 429,-22 511,-22 511,0 429,0"/>
+<text text-anchor="start" x="433.891" y="-8" font-family="Arial" font-size="10.00" fill="#000000">VARCHAR(255)</text>
+</g>
+<!-- CHORE_ASSIGNMENT&#45;&gt;TENANT -->
+<g id="edge18" class="edge">
+<title>CHORE_ASSIGNMENT-&gt;TENANT</title>
+<path fill="none" stroke="#000000" d="M520.8827,-165C520.8827,-165 697.0144,-165 697.0144,-165 697.0144,-165 697.0144,-725.7588 697.0144,-725.7588"/>
+<polygon fill="#000000" stroke="#000000" points="520.8827,-165.0001 510.8827,-160.5 515.8827,-165 510.8827,-165 510.8827,-165 510.8827,-165 515.8827,-165 510.8827,-169.5 520.8827,-165.0001 520.8827,-165.0001"/>
+<polygon fill="#000000" stroke="#000000" points="702.0144,-729.7589 692.0144,-729.7587 692.0145,-727.7587 702.0145,-727.7589 702.0144,-729.7589"/>
+<polyline fill="none" stroke="#000000" points="697.0144,-730.7588 697.0145,-725.7588 "/>
+</g>
+<!-- CHORE_ASSIGNMENT&#45;&gt;CHORE_DEFINITION -->
+<g id="edge17" class="edge">
+<title>CHORE_ASSIGNMENT-&gt;CHORE_DEFINITION</title>
+<path fill="none" stroke="#000000" d="M520.6305,-88C520.6305,-88 700.9024,-88 700.9024,-88"/>
+<polygon fill="#000000" stroke="#000000" points="695.9024,-88 705.9024,-92.5 700.9024,-88 705.9024,-88 705.9024,-88 705.9024,-88 700.9024,-88 705.9024,-83.5 695.9024,-88 695.9024,-88"/>
+<polygon fill="#000000" stroke="#000000" points="511.6305,-93 511.6305,-83 513.6305,-83 513.6305,-93 511.6305,-93"/>
+<polyline fill="none" stroke="#000000" points="510.6305,-88 515.6305,-88 "/>
+</g>
+<!-- PROPOSAL -->
+<g id="node16" class="node">
+<title>PROPOSAL</title>
+<polygon fill="#ffffff" stroke="transparent" points="294,-634 294,-656 520,-656 520,-634 294,-634"/>
+<polygon fill="none" stroke="#000000" points="294,-634 294,-656 520,-656 520,-634 294,-634"/>
+<text text-anchor="start" x="379.494" y="-643" font-family="Arial" font-weight="bold" font-size="10.00" fill="#000000">PROPOSAL</text>
+<polygon fill="none" stroke="#000000" points="294,-612 294,-634 438,-634 438,-612 294,-612"/>
+<text text-anchor="start" x="299" y="-621" font-family="Arial" text-decoration="underline" font-size="10.00" fill="#000000">Proposal_ID (PK)</text>
+<polygon fill="none" stroke="#000000" points="438,-612 438,-634 520,-634 520,-612 438,-612"/>
+<text text-anchor="start" x="443" y="-620" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="294,-590 294,-612 438,-612 438,-590 294,-590"/>
+<text text-anchor="start" x="298.762" y="-598" font-family="Arial" font-size="10.00" fill="#000000">Proposed_By_Tenant_ID (FK)</text>
+<polygon fill="none" stroke="#000000" points="438,-590 438,-612 520,-612 520,-590 438,-590"/>
+<text text-anchor="start" x="443" y="-598" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="294,-568 294,-590 438,-590 438,-568 294,-568"/>
+<text text-anchor="start" x="299" y="-576" font-family="Arial" font-size="10.00" fill="#000000">Description</text>
+<polygon fill="none" stroke="#000000" points="438,-568 438,-590 520,-590 520,-568 438,-568"/>
+<text text-anchor="start" x="442.891" y="-576" font-family="Arial" font-size="10.00" fill="#000000">VARCHAR(255)</text>
+<polygon fill="none" stroke="#000000" points="294,-546 294,-568 438,-568 438,-546 294,-546"/>
+<text text-anchor="start" x="299" y="-554" font-family="Arial" font-size="10.00" fill="#000000">Cost_Threshold</text>
+<polygon fill="none" stroke="#000000" points="438,-546 438,-568 520,-568 520,-546 438,-546"/>
+<text text-anchor="start" x="443" y="-554" font-family="Arial" font-size="10.00" fill="#000000">DECIMAL(10,2)</text>
+<polygon fill="none" stroke="#000000" points="294,-524 294,-546 438,-546 438,-524 294,-524"/>
+<text text-anchor="start" x="299" y="-532" font-family="Arial" font-size="10.00" fill="#000000">Status</text>
+<polygon fill="none" stroke="#000000" points="438,-524 438,-546 520,-546 520,-524 438,-524"/>
+<text text-anchor="start" x="443" y="-532" font-family="Arial" font-size="10.00" fill="#000000">VARCHAR(20)</text>
+</g>
+<!-- PROPOSAL&#45;&gt;TENANT -->
+<g id="edge19" class="edge">
+<title>PROPOSAL-&gt;TENANT</title>
+<path fill="none" stroke="#000000" d="M512.0144,-666.0963C512.0144,-666.0963 512.0144,-737.75 512.0144,-737.75 512.0144,-737.75 672.944,-737.75 672.944,-737.75"/>
+<polygon fill="#000000" stroke="#000000" points="512.0145,-666.0963 516.5144,-656.0963 512.0144,-661.0963 512.0144,-656.0963 512.0144,-656.0963 512.0144,-656.0963 512.0144,-661.0963 507.5144,-656.0964 512.0145,-666.0963 512.0145,-666.0963"/>
+<polygon fill="#000000" stroke="#000000" points="676.9439,-732.75 676.9441,-742.75 674.9441,-742.7501 674.9439,-732.7501 676.9439,-732.75"/>
+<polyline fill="none" stroke="#000000" points="677.944,-737.75 672.944,-737.7501 "/>
+<text text-anchor="middle" x="599.0072" y="-649.7" font-family="Arial" font-size="9.00" fill="#000000">Creates_Proposal</text>
+</g>
+<!-- VOTE -->
+<g id="node17" class="node">
+<title>VOTE</title>
+<polygon fill="#ffffff" stroke="transparent" points="30.5,-736 30.5,-758 177.5,-758 177.5,-736 30.5,-736"/>
+<polygon fill="none" stroke="#000000" points="30.5,-736 30.5,-758 177.5,-758 177.5,-736 30.5,-736"/>
+<text text-anchor="start" x="90.387" y="-745" font-family="Arial" font-weight="bold" font-size="10.00" fill="#000000">VOTE</text>
+<polygon fill="none" stroke="#000000" points="30.5,-714 30.5,-736 117.5,-736 117.5,-714 30.5,-714"/>
+<text text-anchor="start" x="35.5" y="-723" font-family="Arial" text-decoration="underline" font-size="10.00" fill="#000000">Vote_ID (PK)</text>
+<polygon fill="none" stroke="#000000" points="117.5,-714 117.5,-736 177.5,-736 177.5,-714 117.5,-714"/>
+<text text-anchor="start" x="122.5" y="-722" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="30.5,-692 30.5,-714 117.5,-714 117.5,-692 30.5,-692"/>
+<text text-anchor="start" x="35.3875" y="-700" font-family="Arial" font-size="10.00" fill="#000000">Proposal_ID (FK)</text>
+<polygon fill="none" stroke="#000000" points="117.5,-692 117.5,-714 177.5,-714 177.5,-692 117.5,-692"/>
+<text text-anchor="start" x="122.5" y="-700" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="30.5,-670 30.5,-692 117.5,-692 117.5,-670 30.5,-670"/>
+<text text-anchor="start" x="35.5" y="-678" font-family="Arial" font-size="10.00" fill="#000000">Tenant_ID (FK)</text>
+<polygon fill="none" stroke="#000000" points="117.5,-670 117.5,-692 177.5,-692 177.5,-670 117.5,-670"/>
+<text text-anchor="start" x="122.5" y="-678" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="30.5,-648 30.5,-670 117.5,-670 117.5,-648 30.5,-648"/>
+<text text-anchor="start" x="35.5" y="-656" font-family="Arial" font-size="10.00" fill="#000000">Approval_Status</text>
+<polygon fill="none" stroke="#000000" points="117.5,-648 117.5,-670 177.5,-670 177.5,-648 117.5,-648"/>
+<text text-anchor="start" x="122.5" y="-656" font-family="Arial" font-size="10.00" fill="#000000">BOOLEAN</text>
+<polygon fill="none" stroke="#000000" points="30.5,-626 30.5,-648 117.5,-648 117.5,-626 30.5,-626"/>
+<text text-anchor="start" x="35.5" y="-634" font-family="Arial" font-size="10.00" fill="#000000">Vote_Timestamp</text>
+<polygon fill="none" stroke="#000000" points="117.5,-626 117.5,-648 177.5,-648 177.5,-626 117.5,-626"/>
+<text text-anchor="start" x="122.224" y="-634" font-family="Arial" font-size="10.00" fill="#000000">DATETIME</text>
+</g>
+<!-- VOTE&#45;&gt;TENANT -->
+<g id="edge21" class="edge">
+<title>VOTE-&gt;TENANT</title>
+<path fill="none" stroke="#000000" d="M187.1874,-751.25C187.1874,-751.25 672.9488,-751.25 672.9488,-751.25"/>
+<polygon fill="#000000" stroke="#000000" points="667.9488,-751.25 677.9488,-755.75 672.9488,-751.25 677.9488,-751.25 677.9488,-751.25 677.9488,-751.25 672.9488,-751.25 677.9488,-746.75 667.9488,-751.25 667.9488,-751.25"/>
+<polygon fill="#000000" stroke="#000000" points="178.1874,-756.25 178.1874,-746.25 180.1874,-746.25 180.1874,-756.25 178.1874,-756.25"/>
+<polyline fill="none" stroke="#000000" points="177.1874,-751.25 182.1874,-751.25 "/>
+<text text-anchor="middle" x="407" y="-744.7" font-family="Arial" font-size="9.00" fill="#000000">Casts_Vote</text>
+</g>
+<!-- VOTE&#45;&gt;PROPOSAL -->
+<g id="edge20" class="edge">
+<title>VOTE-&gt;PROPOSAL</title>
+<path fill="none" stroke="#000000" d="M187.3564,-641C187.3564,-641 288.904,-641 288.904,-641"/>
+<polygon fill="#000000" stroke="#000000" points="283.904,-641 293.904,-645.5 288.904,-641 293.904,-641 293.904,-641 293.904,-641 288.904,-641 293.9039,-636.5 283.904,-641 283.904,-641"/>
+<polygon fill="#000000" stroke="#000000" points="178.3564,-646 178.3564,-636 180.3564,-636 180.3564,-646 178.3564,-646"/>
+<polyline fill="none" stroke="#000000" points="177.3564,-641 182.3564,-641 "/>
+</g>
+<!-- UTILITY_READING -->
+<g id="node18" class="node">
+<title>UTILITY_READING</title>
+<polygon fill="#ffffff" stroke="transparent" points="987.5144,-1005 987.5144,-1027 1154.5144,-1027 1154.5144,-1005 987.5144,-1005"/>
+<polygon fill="none" stroke="#000000" points="987.5144,-1005 987.5144,-1027 1154.5144,-1027 1154.5144,-1005 987.5144,-1005"/>
+<text text-anchor="start" x="1026.8469" y="-1014" font-family="Arial" font-weight="bold" font-size="10.00" fill="#000000">UTILITY_READING</text>
+<polygon fill="none" stroke="#000000" points="987.5144,-983 987.5144,-1005 1072.5144,-1005 1072.5144,-983 987.5144,-983"/>
+<text text-anchor="start" x="992.2319" y="-992" font-family="Arial" text-decoration="underline" font-size="10.00" fill="#000000">Reading_ID (PK)</text>
+<polygon fill="none" stroke="#000000" points="1072.5144,-983 1072.5144,-1005 1154.5144,-1005 1154.5144,-983 1072.5144,-983"/>
+<text text-anchor="start" x="1077.5144" y="-991" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="987.5144,-961 987.5144,-983 1072.5144,-983 1072.5144,-961 987.5144,-961"/>
+<text text-anchor="start" x="992.2369" y="-969" font-family="Arial" font-size="10.00" fill="#000000">Property_ID (FK)</text>
+<polygon fill="none" stroke="#000000" points="1072.5144,-961 1072.5144,-983 1154.5144,-983 1154.5144,-961 1072.5144,-961"/>
+<text text-anchor="start" x="1077.5144" y="-969" font-family="Arial" font-size="10.00" fill="#000000">INT</text>
+<polygon fill="none" stroke="#000000" points="987.5144,-939 987.5144,-961 1072.5144,-961 1072.5144,-939 987.5144,-939"/>
+<text text-anchor="start" x="992.5144" y="-947" font-family="Arial" font-size="10.00" fill="#000000">Utility_Type</text>
+<polygon fill="none" stroke="#000000" points="1072.5144,-939 1072.5144,-961 1154.5144,-961 1154.5144,-939 1072.5144,-939"/>
+<text text-anchor="start" x="1077.5144" y="-947" font-family="Arial" font-size="10.00" fill="#000000">VARCHAR(50)</text>
+<polygon fill="none" stroke="#000000" points="987.5144,-917 987.5144,-939 1072.5144,-939 1072.5144,-917 987.5144,-917"/>
+<text text-anchor="start" x="992.5144" y="-925" font-family="Arial" font-size="10.00" fill="#000000">Provider_Name</text>
+<polygon fill="none" stroke="#000000" points="1072.5144,-917 1072.5144,-939 1154.5144,-939 1154.5144,-917 1072.5144,-917"/>
+<text text-anchor="start" x="1077.4054" y="-925" font-family="Arial" font-size="10.00" fill="#000000">VARCHAR(100)</text>
+<polygon fill="none" stroke="#000000" points="987.5144,-895 987.5144,-917 1072.5144,-917 1072.5144,-895 987.5144,-895"/>
+<text text-anchor="start" x="992.5144" y="-903" font-family="Arial" font-size="10.00" fill="#000000">Meter_Value</text>
+<polygon fill="none" stroke="#000000" points="1072.5144,-895 1072.5144,-917 1154.5144,-917 1154.5144,-895 1072.5144,-895"/>
+<text text-anchor="start" x="1077.5144" y="-903" font-family="Arial" font-size="10.00" fill="#000000">DECIMAL(10,2)</text>
+<polygon fill="none" stroke="#000000" points="987.5144,-873 987.5144,-895 1072.5144,-895 1072.5144,-873 987.5144,-873"/>
+<text text-anchor="start" x="992.5144" y="-881" font-family="Arial" font-size="10.00" fill="#000000">Reading_Date</text>
+<polygon fill="none" stroke="#000000" points="1072.5144,-873 1072.5144,-895 1154.5144,-895 1154.5144,-873 1072.5144,-873"/>
+<text text-anchor="start" x="1077.5144" y="-881" font-family="Arial" font-size="10.00" fill="#000000">DATE</text>
+</g>
+<!-- UTILITY_READING&#45;&gt;PROPERTY -->
+<g id="edge12" class="edge">
+<title>UTILITY_READING-&gt;PROPERTY</title>
+<path fill="none" stroke="#000000" d="M1164.1997,-988.5C1164.1997,-988.5 1235.8439,-988.5 1235.8439,-988.5"/>
+<polygon fill="#000000" stroke="#000000" points="1230.8439,-988.5 1240.8439,-993 1235.8439,-988.5 1240.8439,-988.5 1240.8439,-988.5 1240.8439,-988.5 1235.8439,-988.5 1240.8438,-984 1230.8439,-988.5 1230.8439,-988.5"/>
+<polygon fill="#000000" stroke="#000000" points="1155.1997,-993.5 1155.1997,-983.5 1157.1997,-983.5 1157.1997,-993.5 1155.1997,-993.5"/>
+<polyline fill="none" stroke="#000000" points="1154.1997,-988.5 1159.1997,-988.5 "/>
+</g>
+</g>
+</svg>
