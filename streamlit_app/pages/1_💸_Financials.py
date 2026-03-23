@@ -15,7 +15,6 @@ import plotly.graph_objects as go
 import logging
 from datetime import date
 from utils.db import (
-    get_db_connection,
     run_query,
     execute_transaction,
     get_tenant_name
@@ -164,14 +163,13 @@ def expense_form():
                 return
             
             try:
-                # Prepare stored procedure call
                 sql = """
                 DECLARE @NewExpenseID INT;
                 EXEC dbo.usp_CreateHouseholdExpense 
-                    ?,      -- @PaidByTenantID
-                    ?,      -- @Amount
-                    ?,      -- @SplitPolicy
-                    ?,      -- @ReceiptURL
+                    ?,
+                    ?,
+                    ?,
+                    ?,
                     @NewExpenseID OUTPUT;
                 SELECT @NewExpenseID AS NewExpenseID;
                 """
@@ -180,28 +178,19 @@ def expense_form():
                     st.session_state.logged_in_tenant_id,
                     amount,
                     split_policy,
-                    None,  # ReceiptURL placeholder
+                    None,
                 ]
                 
-                # Execute transaction
-                conn = get_db_connection()
-                cursor = conn.cursor()
-                cursor.execute(sql, params)
-                result = cursor.fetchone()
-                conn.commit()
-                cursor.close()
+                execute_transaction(sql, params)
                 
-                if result:
-                    expense_id = result[0]
-                    st.success(
-                        f"✅ Expense created successfully!\n"
-                        f"Expense ID: {expense_id}\n"
-                        f"Amount: ${amount:.2f} split among all tenants"
-                    )
-                    logger.info(
-                        f"Expense {expense_id} created by Tenant {st.session_state.logged_in_tenant_id}: ${amount}"
-                    )
-                    st.rerun()
+                st.success(
+                    f"✅ Expense created successfully!\n"
+                    f"Amount: ${amount:.2f} split among all tenants"
+                )
+                logger.info(
+                    f"Expense created by Tenant {st.session_state.logged_in_tenant_id}: ${amount}"
+                )
+                st.rerun()
                 
             except Exception as e:
                 st.error(f"❌ Failed to create expense: {e}")
@@ -244,13 +233,12 @@ def payment_form():
                 return
             
             try:
-                # Prepare stored procedure call
                 sql = """
                 DECLARE @NewBalance DECIMAL(10,2);
                 EXEC dbo.usp_ProcessTenantPayment
-                    ?,      -- @PayerTenantID
-                    ?,      -- @Amount
-                    ?,      -- @Note
+                    ?,
+                    ?,
+                    ?,
                     @NewBalance OUTPUT;
                 SELECT @NewBalance AS NewBalance;
                 """
@@ -261,25 +249,16 @@ def payment_form():
                     notes
                 ]
                 
-                # Execute transaction
-                conn = get_db_connection()
-                cursor = conn.cursor()
-                cursor.execute(sql, params)
-                result = cursor.fetchone()
-                conn.commit()
-                cursor.close()
+                execute_transaction(sql, params)
                 
-                if result:
-                    new_balance = result[0]
-                    st.success(
-                        f"✅ Payment processed successfully!\n"
-                        f"Amount: ${amount:.2f}\n"
-                        f"Your new balance: ${new_balance:.2f}"
-                    )
-                    logger.info(
-                        f"Payment of ${amount} processed by Tenant {st.session_state.logged_in_tenant_id}"
-                    )
-                    st.rerun()
+                st.success(
+                    f"✅ Payment processed successfully!\n"
+                    f"Amount: ${amount:.2f}"
+                )
+                logger.info(
+                    f"Payment of ${amount} processed by Tenant {st.session_state.logged_in_tenant_id}"
+                )
+                st.rerun()
                     
             except Exception as e:
                 st.error(f"❌ Failed to process payment: {e}")
@@ -347,11 +326,7 @@ def delete_expense_form():
                     WHERE Expense_ID = ?;
                     """
                     
-                    conn = get_db_connection()
-                    cursor = conn.cursor()
-                    cursor.execute(sql_delete, [expense_id])
-                    conn.commit()
-                    cursor.close()
+                    execute_transaction(sql_delete, [expense_id])
                     
                     st.success(
                         f"✅ Expense {expense_id} deleted successfully.\n"
