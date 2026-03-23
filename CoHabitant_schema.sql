@@ -156,7 +156,8 @@ CREATE TABLE dbo.EXPENSE_SHARE (
     Owed_Amount DECIMAL(10,2) NOT NULL,
     Status VARCHAR(20) DEFAULT 'Pending',
     CONSTRAINT FK_ExpenseShare_Exp FOREIGN KEY (Expense_ID) REFERENCES dbo.EXPENSE(Expense_ID),
-    CONSTRAINT FK_ExpenseShare_Tenant FOREIGN KEY (Owed_By_Tenant_ID) REFERENCES dbo.TENANT(Tenant_ID)
+    CONSTRAINT FK_ExpenseShare_Tenant FOREIGN KEY (Owed_By_Tenant_ID) REFERENCES dbo.TENANT(Tenant_ID),
+    CONSTRAINT CHK_ExpShare_Status CHECK (Status IN ('Pending', 'Paid')) -- NEW
 );
 
 CREATE TABLE dbo.PAYMENT (
@@ -186,7 +187,8 @@ CREATE TABLE dbo.CHORE_ASSIGNMENT (
     Status VARCHAR(20) DEFAULT 'Pending',
     Proof_Image VARCHAR(255),
     CONSTRAINT FK_ChoreAssign_Chore FOREIGN KEY (Chore_ID) REFERENCES dbo.CHORE_DEFINITION(Chore_ID),
-    CONSTRAINT FK_ChoreAssign_Tenant FOREIGN KEY (Assigned_Tenant_ID) REFERENCES dbo.TENANT(Tenant_ID)
+    CONSTRAINT FK_ChoreAssign_Tenant FOREIGN KEY (Assigned_Tenant_ID) REFERENCES dbo.TENANT(Tenant_ID),
+    CONSTRAINT CHK_Chore_Status CHECK (Status IN ('Pending', 'Completed')) -- NEW
 );
 
 CREATE TABLE dbo.PROPOSAL (
@@ -195,7 +197,8 @@ CREATE TABLE dbo.PROPOSAL (
     Description VARCHAR(255) NOT NULL,
     Cost_Threshold DECIMAL(10,2),
     Status VARCHAR(20) DEFAULT 'Active',
-    CONSTRAINT FK_Proposal_Tenant FOREIGN KEY (Proposed_By_Tenant_ID) REFERENCES dbo.TENANT(Tenant_ID)
+    CONSTRAINT FK_Proposal_Tenant FOREIGN KEY (Proposed_By_Tenant_ID) REFERENCES dbo.TENANT(Tenant_ID),
+    CONSTRAINT CHK_Prop_Status CHECK (Status IN ('Active', 'Approved', 'Rejected')) -- NEW
 );
 
 CREATE TABLE dbo.VOTE (
@@ -205,7 +208,8 @@ CREATE TABLE dbo.VOTE (
     Approval_Status BIT NOT NULL,
     Vote_Timestamp DATETIME NOT NULL,
     CONSTRAINT FK_Vote_Proposal FOREIGN KEY (Proposal_ID) REFERENCES dbo.PROPOSAL(Proposal_ID),
-    CONSTRAINT FK_Vote_Tenant FOREIGN KEY (Tenant_ID) REFERENCES dbo.TENANT(Tenant_ID)
+    CONSTRAINT FK_Vote_Tenant FOREIGN KEY (Tenant_ID) REFERENCES dbo.TENANT(Tenant_ID),
+    CONSTRAINT UQ_Vote_Tenant_Proposal UNIQUE (Proposal_ID, Tenant_ID) -- NEW (Prevents duplicate votes)
 );
 
 -- [F. Utility Analytics]

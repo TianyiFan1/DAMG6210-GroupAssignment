@@ -114,50 +114,40 @@ GO
 
 /* =========================================================================================
    PART 3: STORED PROCEDURES (The Backend API Layer)
-   Purpose: Handles all Streamlit INSERT/UPDATE requests safely with Transaction Management.
 ========================================================================================= */
 
--- SP 1: Create an Expense and Auto-Split it (Complex Transaction)
+-- SP 1: Create an Expense and Auto-Split it
 CREATE OR ALTER PROCEDURE dbo.usp_CreateHouseholdExpense
     @PaidByTenantID INT,
     @Amount DECIMAL(10,2),
     @SplitPolicy VARCHAR(50),
     @ReceiptURL VARCHAR(255),
-    @NewExpenseID INT OUTPUT -- Returns the generated ID back to Python
+    @NewExpenseID INT OUTPUT -- OUTPUT 1
 AS
 BEGIN
-    SET XACT_ABORT ON; -- Auto-rollback on severe errors
+    SET XACT_ABORT ON; 
     BEGIN TRY
         BEGIN TRAN;
         
-        -- 1. Insert the Master Expense Record
         INSERT INTO dbo.EXPENSE (Paid_By_Tenant_ID, Total_Amount, Date_Incurred, Split_Policy, Receipt_Image)
         VALUES (@PaidByTenantID, @Amount, CAST(GETDATE() AS DATE), @SplitPolicy, @ReceiptURL);
         
         SET @NewExpenseID = SCOPE_IDENTITY();
         
-        -- 2. Calculate the equal share using our UDF
         DECLARE @CalculatedShare DECIMAL(10,2) = dbo.fn_CalculateExpenseShare(@Amount);
         
-        -- 3. Auto-generate the debts for everyone EXCEPT the person who paid
         INSERT INTO dbo.EXPENSE_SHARE (Expense_ID, Owed_By_Tenant_ID, Owed_Amount, Status)
-        SELECT 
-            @NewExpenseID, 
-            Tenant_ID, 
-            @CalculatedShare, 
-            'Pending'
-        FROM dbo.TENANT
-        WHERE Tenant_ID <> @PaidByTenantID;
+        SELECT @NewExpenseID, Tenant_ID, @CalculatedShare, 'Pending'
+        FROM dbo.TENANT WHERE Tenant_ID <> @PaidByTenantID;
         
         COMMIT TRAN;
-        RETURN 0; -- Success
+        RETURN 0; 
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK TRAN;
-        -- Re-throw error for Streamlit to catch
         DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
         RAISERROR(@ErrMsg, 16, 1);
-        RETURN -1; -- Failure
+        RETURN -1; 
     END CATCH
 END;
 GO
@@ -166,21 +156,23 @@ GO
 CREATE OR ALTER PROCEDURE dbo.usp_ProcessTenantPayment
     @PayerTenantID INT,
     @Amount DECIMAL(10,2),
-    @Note VARCHAR(255)
+    @Note VARCHAR(255),
+    @NewBalance DECIMAL(10,2) OUTPUT -- OUTPUT 2 (Added per Copilot)
 AS
 BEGIN
     SET XACT_ABORT ON;
     BEGIN TRY
         BEGIN TRAN;
         
-        -- 1. Log the Payment
         INSERT INTO dbo.PAYMENT (Payer_Tenant_ID, Amount, Payment_Date, Note)
         VALUES (@PayerTenantID, @Amount, CAST(GETDATE() AS DATE), @Note);
         
-        -- 2. Update the Tenant's Net Balance (subtracting their debt payload)
         UPDATE dbo.TENANT
         SET Current_Net_Balance = Current_Net_Balance + @Amount
         WHERE Tenant_ID = @PayerTenantID;
+        
+        -- Return the new balance to the frontend
+        SELECT @NewBalance = Current_Net_Balance FROM dbo.TENANT WHERE Tenant_ID = @PayerTenantID;
         
         COMMIT TRAN;
         RETURN 0;
@@ -196,33 +188,33 @@ GO
 CREATE OR ALTER PROCEDURE dbo.usp_CastProposalVote
     @ProposalID INT,
     @TenantID INT,
-    @IsApproved BIT
+    @IsApproved BIT,
+    @FinalStatus VARCHAR(20) OUTPUT -- OUTPUT 3 (Added per Copilot)
 AS
 BEGIN
+    SET XACT_ABORT ON; -- Added per Copilot for consistency
     BEGIN TRY
         BEGIN TRAN;
         
-        -- 1. Check for duplicate voting (Business Rule Enforcement)
-        IF EXISTS (SELECT 1 FROM dbo.VOTE WHERE Proposal_ID = @ProposalID AND Tenant_ID = @TenantID)
-        BEGIN
-            RAISERROR('Tenant has already voted on this proposal.', 16, 1);
-        END
-        
-        -- 2. Cast the vote
+        -- The UNIQUE constraint (added below) handles duplicate prevention now
         INSERT INTO dbo.VOTE (Proposal_ID, Tenant_ID, Approval_Status, Vote_Timestamp)
         VALUES (@ProposalID, @TenantID, @IsApproved, GETDATE());
         
-        -- 3. Check if all votes are in using our UDF
         IF dbo.fn_GetPendingVoteCount(@ProposalID) = 0
         BEGIN
-            -- Determine if it passed (Simple Majority Logic)
             DECLARE @YesVotes INT = (SELECT COUNT(*) FROM dbo.VOTE WHERE Proposal_ID = @ProposalID AND Approval_Status = 1);
             DECLARE @TotalVotes INT = (SELECT COUNT(*) FROM dbo.VOTE WHERE Proposal_ID = @ProposalID);
             
             IF CAST(@YesVotes AS FLOAT) / @TotalVotes >= 0.51
-                UPDATE dbo.PROPOSAL SET Status = 'Approved' WHERE Proposal_ID = @ProposalID;
+                SET @FinalStatus = 'Approved';
             ELSE
-                UPDATE dbo.PROPOSAL SET Status = 'Rejected' WHERE Proposal_ID = @ProposalID;
+                SET @FinalStatus = 'Rejected';
+                
+            UPDATE dbo.PROPOSAL SET Status = @FinalStatus WHERE Proposal_ID = @ProposalID;
+        END
+        ELSE
+        BEGIN
+            SET @FinalStatus = 'Active'; -- Still waiting on votes
         END
         
         COMMIT TRAN;
