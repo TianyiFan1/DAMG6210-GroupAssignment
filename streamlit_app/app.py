@@ -8,7 +8,7 @@ All page navigation and user session management is handled here.
 
 import streamlit as st
 import logging
-from utils.db import get_active_tenants, get_tenant_name
+from utils.db import get_active_tenants, get_tenant_name, run_query    
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -139,14 +139,29 @@ def main():
         st.title("🏠 CoHabitant Dashboard")
         st.markdown(f"Welcome back, **{st.session_state.logged_in_tenant_name}**! 👋")
         
-        # Placeholder for dashboard content
+        # --- DYNAMIC DASHBOARD DATA ---
+        tenant_id = st.session_state.logged_in_tenant_id
+        
+        # 1. Fetch live balance
+        bal_df = run_query("SELECT Current_Net_Balance FROM dbo.TENANT WHERE Tenant_ID = ?", [tenant_id])
+        balance = bal_df.iloc[0]['Current_Net_Balance'] if not bal_df.empty else 0.00
+        
+        # 2. Fetch pending chores for this specific user
+        chores_df = run_query("SELECT COUNT(*) as Cnt FROM dbo.CHORE_ASSIGNMENT WHERE Assigned_Tenant_ID = ? AND Status = 'Pending'", [tenant_id])
+        pending_chores = chores_df.iloc[0]['Cnt'] if not chores_df.empty else 0
+        
+        # 3. Fetch total active house proposals
+        props_df = run_query("SELECT COUNT(*) as Cnt FROM dbo.PROPOSAL WHERE Status = 'Active'")
+        active_props = props_df.iloc[0]['Cnt'] if not props_df.empty else 0
+        
+        # Render the live metrics!
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("💰 Your Balance", "$-45.50")
+            st.metric("💰 Your Balance", f"${balance:,.2f}")
         with col2:
-            st.metric("🧹 Pending Chores", "2")
+            st.metric("🧹 Pending Chores", str(pending_chores))
         with col3:
-            st.metric("🗳️ Active Proposals", "3")
+            st.metric("🗳️ Active Proposals", str(active_props))
         
         st.markdown("---")
         st.info("📌 Navigate to 💸 Financials page from the left sidebar to manage expenses and payments.")
