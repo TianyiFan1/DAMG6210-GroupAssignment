@@ -123,13 +123,20 @@ def render_mark_complete_form(my_chores_df: pd.DataFrame):
             UPDATE dbo.CHORE_ASSIGNMENT
             SET Status = 'Completed',
                 Completion_Date = GETDATE()
-                        WHERE Assignment_ID = ?
-                            AND Assigned_Tenant_ID = ?
+            WHERE Assignment_ID = ?
+              AND Assigned_Tenant_ID = ?
             """
             try:
-                                execute_transaction(update_sql, [assignment_id, st.session_state.get("logged_in_tenant_id")])
+                execute_transaction(
+                    update_sql,
+                    [assignment_id, st.session_state.get("logged_in_tenant_id")],
+                )
                 st.success(f"Assignment {assignment_id} marked as completed.")
-                logger.info("Chore assignment %s completed by tenant %s", assignment_id, st.session_state.get("logged_in_tenant_id"))
+                logger.info(
+                    "Chore assignment %s completed by tenant %s",
+                    assignment_id,
+                    st.session_state.get("logged_in_tenant_id"),
+                )
                 st.rerun()
             except Exception as exc:
                 st.error(f"Unable to update chore status: {exc}")

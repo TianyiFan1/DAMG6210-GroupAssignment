@@ -40,7 +40,7 @@ STRUCTURE = """
 # 2. INSTALLATION CHECKLIST
 # ============================================================================
 
-SETUP_STEPS = """
+SETUP_STEPS = r"""
 □ Step 1: Install Python 3.8+ (check: python --version)
 
 □ Step 2: Install ODBC Driver 17

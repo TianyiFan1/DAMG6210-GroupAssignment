@@ -3,3 +3,6 @@ pandas>=2.2.0
 plotly>=5.20.0
 pyodbc>=5.1.0
 python-dotenv>=1.0.1
+pytest>=8.0.0
+pytest-mock>=3.14.0
+hypothesis>=6.100.0

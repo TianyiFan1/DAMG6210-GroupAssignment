@@ -1,5 +1,8 @@
 # Streamlit
 .streamlit/cache/
+.streamlit/*
+!.streamlit/secrets.toml.template
+!.streamlit/config.toml
 
 # Python
 __pycache__/
@@ -9,6 +12,8 @@ __pycache__/
 venv/
 env/
 .venv
+.hypothesis/
+.hypthesis/
 
 # IDE
 .vscode/

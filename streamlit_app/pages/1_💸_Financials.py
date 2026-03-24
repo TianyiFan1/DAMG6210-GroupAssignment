@@ -13,12 +13,20 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import logging
+import json
+import io
+from google import genai
 from datetime import date
+from PIL import Image
 from utils.db import (
     run_query,
     execute_transaction,
-    get_roommate_ids
+    get_roommate_ids,
+    get_tenant_name,
 )
+from utils.financial_logic import build_expense_transaction_sql_params
+
+client = genai.Client(api_key=st.secrets["gemini"]["api_key"])
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +42,29 @@ def check_authenticated():
     if st.session_state.get("logged_in_tenant_id") is None:
         st.warning("⚠️ Please log in from the main page first!")
         st.stop()
+
+
+def parse_receipt_with_ai(image_bytes: bytes) -> dict:
+    """Parse receipt image using Gemini and return normalized JSON fields."""
+    prompt = "Analyze this store receipt. Return ONLY a valid JSON object with exactly these 6 keys: 'amount' (float, total cost), 'description' (string, Merchant name + brief summary like 'Target Shared Supplies'), 'category' (string, choose exactly one: 'Groceries', 'Utilities', 'Rent', 'Cleaning', or 'Other'), 'notes' (string, list the top 3 most expensive items on the receipt), 'split_policy' (string. Return 'Equal' if all items are shared household goods. Return 'Custom' if you detect personal items like alcohol, protein powder, or clothing), and 'date_incurred' (string, YYYY-MM-DD format, extract the date printed on the receipt). Do not use markdown blocks."
+    try:
+        img = Image.open(io.BytesIO(image_bytes))
+        
+        # Using the new 2.5-flash model and the new SDK syntax
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=[img, prompt]
+        )
+        
+        # Clean the response just in case Gemini includes ```json ``` markdown
+        clean_text = response.text.replace("```json", "").replace("```", "").strip()
+        parsed = json.loads(clean_text)
+        
+        return parsed if isinstance(parsed, dict) else {}
+        
+    except Exception as exc:
+        logger.error("AI receipt parsing failed: %s", exc)
+        return {}
 
 
 def load_active_balances(tenant_id: int) -> pd.DataFrame:
@@ -137,6 +168,43 @@ def expense_form():
     Calls: EXEC dbo.usp_CreateHouseholdExpense
     """
     st.subheader("➕ Add New House Expense")
+
+    if "ai_amount" not in st.session_state:
+        st.session_state.ai_amount = 0.01
+    if "ai_description" not in st.session_state:
+        st.session_state.ai_description = ""
+    if "ai_split_policy" not in st.session_state:
+        st.session_state.ai_split_policy = "Equal"
+    if "ai_category" not in st.session_state:
+        st.session_state.ai_category = "Other"
+    if "ai_notes" not in st.session_state:
+        st.session_state.ai_notes = ""
+    if "ai_date_incurred" not in st.session_state:
+        st.session_state.ai_date_incurred = date.today()
+
+    uploaded_file = st.file_uploader("📸 Scan Receipt (Optional)", type=["png", "jpg", "jpeg"])
+    if uploaded_file is not None:
+        if st.button("🤖 Auto-Fill with AI"):
+            parsed = parse_receipt_with_ai(uploaded_file.getvalue())
+
+            st.session_state.ai_amount = float(parsed.get("amount", st.session_state.ai_amount or 0.01) or 0.01)
+            st.session_state.ai_description = str(parsed.get("description", st.session_state.ai_description) or "")
+
+            split_val = str(parsed.get("split_policy", st.session_state.ai_split_policy) or "Equal")
+            st.session_state.ai_split_policy = split_val if split_val in ["Equal", "Custom", "Consumption-Based"] else "Equal"
+
+            cat_val = str(parsed.get("category", st.session_state.ai_category) or "Other")
+            st.session_state.ai_category = cat_val if cat_val in ["Groceries", "Utilities", "Rent", "Cleaning", "Other"] else "Other"
+
+            st.session_state.ai_notes = str(parsed.get("notes", st.session_state.ai_notes) or "")
+
+            parsed_date = parsed.get("date_incurred", None)
+            try:
+                st.session_state.ai_date_incurred = date.fromisoformat(str(parsed_date)) if parsed_date else st.session_state.ai_date_incurred
+            except Exception:
+                st.session_state.ai_date_incurred = date.today()
+
+            st.rerun()
     
     with st.form("expense_form", clear_on_submit=True):
         col1, col2 = st.columns(2)
@@ -147,21 +215,62 @@ def expense_form():
                 min_value=0.01,
                 max_value=10000.00,
                 step=0.01,
-                format="%.2f"
+                format="%.2f",
+                value=float(st.session_state.ai_amount)
             )
-            description = st.text_input("Description (e.g., 'Groceries', 'Internet Bill')")
+            description = st.text_input(
+                "Description (e.g., 'Groceries', 'Internet Bill')",
+                value=st.session_state.ai_description,
+            )
         
         with col2:
+            split_options = ["Equal", "Custom", "Consumption-Based"]
+            split_index = split_options.index(st.session_state.ai_split_policy) if st.session_state.ai_split_policy in split_options else 0
             split_policy = st.selectbox(
                 "Split Policy",
-                ["Equal", "Custom", "Consumption-Based"]
+                split_options,
+                index=split_index,
             )
+            category_options = ["Groceries", "Utilities", "Rent", "Cleaning", "Other"]
+            category_index = category_options.index(st.session_state.ai_category) if st.session_state.ai_category in category_options else 4
             category = st.selectbox(
                 "Expense Category",
-                ["Groceries", "Utilities", "Rent", "Cleaning", "Other"]
+                category_options,
+                index=category_index,
             )
-        
-        notes = st.text_area("Additional Notes", max_chars=255)
+
+        col3, col4 = st.columns(2)
+        with col3:
+            date_incurred = st.date_input("Date Incurred", value=st.session_state.ai_date_incurred)
+        with col4:
+            notes = st.text_area("Additional Notes", max_chars=255, value=st.session_state.ai_notes)
+
+        payer_tenant_id = int(st.session_state.logged_in_tenant_id)
+        roommates = get_roommate_ids(payer_tenant_id)
+        if not roommates:
+            roommates = [payer_tenant_id]
+
+        roommate_owed_amounts = {}
+        if split_policy == "Custom":
+            st.markdown("### Custom Split Allocation")
+            for rid in roommates:
+                if rid == payer_tenant_id:
+                    continue
+                roommate_name = get_tenant_name(rid)
+                owed_key = f"custom_owed_{rid}"
+                roommate_owed_amounts[rid] = st.number_input(
+                    f"Amount owed by {roommate_name}",
+                    min_value=0.0,
+                    max_value=float(amount),
+                    value=float(st.session_state.get(owed_key, 0.0)),
+                    step=0.01,
+                    format="%.2f",
+                    key=owed_key,
+                )
+
+            custom_total = sum(roommate_owed_amounts.values())
+            st.caption(f"Total assigned to roommates: ${custom_total:.2f}")
+            st.caption(f"Payer share (remainder): ${float(amount) - custom_total:.2f}")
         
         submitted = st.form_submit_button("💾 Create Expense")
         
@@ -171,33 +280,42 @@ def expense_form():
                 return
             
             try:
-                sql = """
-                DECLARE @NewExpenseID INT;
-                EXEC dbo.usp_CreateHouseholdExpense 
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    @NewExpenseID OUTPUT;
-                SELECT @NewExpenseID AS NewExpenseID;
-                """
-                
-                params = [
-                    st.session_state.logged_in_tenant_id,
-                    amount,
-                    split_policy,
-                    None,
-                ]
-                
-                execute_transaction(sql, params)
+                if split_policy == "Custom" and not roommate_owed_amounts and len(roommates) > 1:
+                    st.error("Please assign custom owed amounts for your roommates.")
+                    return
+
+                final_sql, params, _ = build_expense_transaction_sql_params(
+                    payer_tenant_id=payer_tenant_id,
+                    total_amount=float(amount),
+                    date_incurred=date_incurred,
+                    split_policy=split_policy,
+                    description=description,
+                    notes=notes,
+                    roommates=roommates,
+                    custom_owed_amounts=roommate_owed_amounts if split_policy == "Custom" else None,
+                )
+                execute_transaction(final_sql, params)
+
+                st.session_state.ai_amount = 0.01
+                st.session_state.ai_description = ""
+                st.session_state.ai_split_policy = "Equal"
+                st.session_state.ai_category = "Other"
+                st.session_state.ai_notes = ""
+                st.session_state.ai_date_incurred = date.today()
                 
                 st.success(
                     f"✅ Expense created successfully!\n"
-                    f"Amount: ${amount:.2f} split among all tenants"
+                    f"Amount: ${amount:.2f} saved for {date_incurred}"
                 )
                 logger.info(
-                    f"Expense created by Tenant {st.session_state.logged_in_tenant_id}: ${amount}"
+                    "Expense created by Tenant %s: amount=%s category=%s notes=%s",
+                    st.session_state.logged_in_tenant_id,
+                    amount,
+                    category,
+                    notes,
                 )
+                import time
+                time.sleep(2.5)
                 st.rerun()
                 
             except Exception as e:
@@ -329,21 +447,34 @@ def delete_expense_form():
                 expense_id = expense_options[selected_expense]
                 
                 try:
+                    # UPDATED SQL: Check ownership, delete shares first, then delete the main expense
                     sql_delete = """
-                    DELETE FROM dbo.EXPENSE 
-                                        WHERE Expense_ID = ?
-                                            AND Paid_By_Tenant_ID = ?;
+                    IF EXISTS (SELECT 1 FROM dbo.EXPENSE WHERE Expense_ID = ? AND Paid_By_Tenant_ID = ?)
+                    BEGIN
+                        DELETE FROM dbo.EXPENSE_SHARE WHERE Expense_ID = ?;
+                        DELETE FROM dbo.EXPENSE WHERE Expense_ID = ?;
+                    END
+                    ELSE
+                    BEGIN
+                        THROW 51000, 'Unauthorized or Expense not found.', 1;
+                    END
                     """
                     
-                                        execute_transaction(sql_delete, [expense_id, st.session_state.logged_in_tenant_id])
+                    # We pass the parameters to match the 4 question marks in the SQL above
+                    execute_transaction(sql_delete, [
+                        expense_id, 
+                        st.session_state.logged_in_tenant_id,
+                        expense_id,
+                        expense_id
+                    ])
                     
                     st.success(
                         f"✅ Expense {expense_id} deleted successfully.\n"
                         f"⚠️ Action logged by audit trigger for compliance."
                     )
-                    logger.info(
-                        f"Expense {expense_id} deleted by Tenant {st.session_state.logged_in_tenant_id}. Reason: {reason}"
-                    )
+                    
+                    import time
+                    time.sleep(2.5) 
                     st.rerun()
                     
                 except Exception as e:
