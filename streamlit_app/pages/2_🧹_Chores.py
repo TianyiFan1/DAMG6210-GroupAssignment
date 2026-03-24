@@ -8,7 +8,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from utils.db import execute_transaction, run_query
+from utils.db import execute_transaction, run_query, get_roommate_ids
 
 logger = logging.getLogger(__name__)
 
@@ -26,14 +26,20 @@ def check_authenticated():
         st.stop()
 
 
-def load_chore_leaderboard() -> pd.DataFrame:
+def load_chore_leaderboard(tenant_id: int) -> pd.DataFrame:
     """Load leaderboard data from the chore leaderboard view."""
-    sql = """
+    roommate_ids = get_roommate_ids(tenant_id)
+    if not roommate_ids:
+        return pd.DataFrame()
+
+    placeholders = ", ".join("?" for _ in roommate_ids)
+    sql = f"""
     SELECT *
     FROM dbo.vw_App_Chore_Leaderboard
+    WHERE Tenant_ID IN ({placeholders})
     ORDER BY Tenant_Responsibility_Score DESC
     """
-    return run_query(sql)
+    return run_query(sql, roommate_ids)
 
 
 def load_my_pending_chores(tenant_id: int) -> pd.DataFrame:
@@ -117,10 +123,11 @@ def render_mark_complete_form(my_chores_df: pd.DataFrame):
             UPDATE dbo.CHORE_ASSIGNMENT
             SET Status = 'Completed',
                 Completion_Date = GETDATE()
-            WHERE Assignment_ID = ?
+                        WHERE Assignment_ID = ?
+                            AND Assigned_Tenant_ID = ?
             """
             try:
-                execute_transaction(update_sql, [assignment_id])
+                                execute_transaction(update_sql, [assignment_id, st.session_state.get("logged_in_tenant_id")])
                 st.success(f"Assignment {assignment_id} marked as completed.")
                 logger.info("Chore assignment %s completed by tenant %s", assignment_id, st.session_state.get("logged_in_tenant_id"))
                 st.rerun()
@@ -142,7 +149,7 @@ def main():
 
     with tab1:
         try:
-            leaderboard_df = load_chore_leaderboard()
+            leaderboard_df = load_chore_leaderboard(tenant_id)
             render_leaderboard(leaderboard_df)
         except Exception as exc:
             st.error(f"Failed to load chore leaderboard: {exc}")

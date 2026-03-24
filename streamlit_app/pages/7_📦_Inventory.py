@@ -4,11 +4,10 @@ Tenant-only page for shared and personal item management.
 """
 
 import logging
-from datetime import date
 import pandas as pd
 import streamlit as st
 
-from utils.db import run_query, execute_transaction
+from utils.db import run_query, execute_transaction, get_tenant_property_id, get_roommate_ids
 
 logger = logging.getLogger(__name__)
 
@@ -39,14 +38,25 @@ def get_tenant_properties(tenant_id: int) -> pd.DataFrame:
     FROM dbo.PROPERTY p
     INNER JOIN dbo.LEASE_AGREEMENT la ON p.Property_ID = la.Property_ID
     WHERE la.Tenant_ID = ?
+      AND CAST(GETDATE() AS DATE) BETWEEN la.Start_Date AND la.End_Date
     ORDER BY Property_Name
     """
     return run_query(sql, [tenant_id])
 
 
-def load_inventory_items() -> pd.DataFrame:
+def load_inventory_items(tenant_id: int) -> pd.DataFrame:
     """READ: Load all inventory items with shared/personal classification."""
-    sql = """
+    property_id = get_tenant_property_id(tenant_id)
+    roommate_ids = get_roommate_ids(tenant_id)
+
+    if property_id is None:
+        return pd.DataFrame()
+
+    if not roommate_ids:
+        roommate_ids = [tenant_id]
+
+    placeholders = ", ".join("?" for _ in roommate_ids)
+    sql = f"""
     SELECT
         ii.Item_ID,
         ii.Item_Name,
@@ -63,17 +73,19 @@ def load_inventory_items() -> pd.DataFrame:
     FROM dbo.INVENTORY_ITEM ii
     LEFT JOIN dbo.SHARED_ITEM si ON ii.Item_ID = si.Item_ID
     LEFT JOIN dbo.PERSONAL_ITEM pi ON ii.Item_ID = pi.Item_ID
+    WHERE si.Property_ID = ?
+       OR pi.Tenant_ID IN ({placeholders})
     ORDER BY ii.Item_Name
     """
-    return run_query(sql)
+    return run_query(sql, [property_id] + roommate_ids)
 
 
-def tab_read_inventory():
+def tab_read_inventory(tenant_id: int):
     """READ Inventory tab."""
     st.subheader("Inventory Items")
 
     try:
-        df = load_inventory_items()
+        df = load_inventory_items(tenant_id)
         if df.empty:
             st.info("No inventory items found.")
             return
@@ -133,7 +145,9 @@ def tab_add_shared_item(tenant_id: int):
                 return
 
             try:
-                insert_inventory_sql = """
+                insert_sql = """
+                DECLARE @NewItemID INT;
+
                 INSERT INTO dbo.INVENTORY_ITEM (
                     Item_Name,
                     Total_Quantity,
@@ -141,35 +155,26 @@ def tab_add_shared_item(tenant_id: int):
                     Storage_Location
                 )
                 VALUES (?, ?, ?, ?)
-                """
-                execute_transaction(
-                    insert_inventory_sql,
-                    [item_name.strip(), int(quantity), category.strip() or None, storage_location.strip() or None],
-                )
 
-                item_lookup_sql = """
-                SELECT TOP 1 Item_ID
-                FROM dbo.INVENTORY_ITEM
-                ORDER BY Item_ID DESC
-                """
-                item_df = run_query(item_lookup_sql)
-                if item_df.empty:
-                    st.error("Failed to retrieve new item ID.")
-                    return
+                SET @NewItemID = SCOPE_IDENTITY();
 
-                item_id = int(item_df.iloc[0]["Item_ID"])
-
-                insert_shared_sql = """
                 INSERT INTO dbo.SHARED_ITEM (
                     Item_ID,
                     Property_ID,
                     Low_Stock_Threshold
                 )
-                VALUES (?, ?, ?)
+                VALUES (@NewItemID, ?, ?)
                 """
                 execute_transaction(
-                    insert_shared_sql,
-                    [item_id, property_id, int(low_stock_threshold)],
+                    insert_sql,
+                    [
+                        item_name.strip(),
+                        int(quantity),
+                        category.strip() or None,
+                        storage_location.strip() or None,
+                        property_id,
+                        int(low_stock_threshold),
+                    ],
                 )
 
                 st.success(f"Shared item '{item_name}' added successfully.")
@@ -200,7 +205,9 @@ def tab_add_personal_item(tenant_id: int):
                 return
 
             try:
-                insert_inventory_sql = """
+                insert_sql = """
+                DECLARE @NewItemID INT;
+
                 INSERT INTO dbo.INVENTORY_ITEM (
                     Item_Name,
                     Total_Quantity,
@@ -208,35 +215,26 @@ def tab_add_personal_item(tenant_id: int):
                     Storage_Location
                 )
                 VALUES (?, ?, ?, ?)
-                """
-                execute_transaction(
-                    insert_inventory_sql,
-                    [item_name.strip(), int(quantity), category.strip() or None, storage_location.strip() or None],
-                )
 
-                item_lookup_sql = """
-                SELECT TOP 1 Item_ID
-                FROM dbo.INVENTORY_ITEM
-                ORDER BY Item_ID DESC
-                """
-                item_df = run_query(item_lookup_sql)
-                if item_df.empty:
-                    st.error("Failed to retrieve new item ID.")
-                    return
+                SET @NewItemID = SCOPE_IDENTITY();
 
-                item_id = int(item_df.iloc[0]["Item_ID"])
-
-                insert_personal_sql = """
                 INSERT INTO dbo.PERSONAL_ITEM (
                     Item_ID,
                     Tenant_ID,
                     Is_Private
                 )
-                VALUES (?, ?, ?)
+                VALUES (@NewItemID, ?, ?)
                 """
                 execute_transaction(
-                    insert_personal_sql,
-                    [item_id, tenant_id, 1 if is_private else 0],
+                    insert_sql,
+                    [
+                        item_name.strip(),
+                        int(quantity),
+                        category.strip() or None,
+                        storage_location.strip() or None,
+                        tenant_id,
+                        1 if is_private else 0,
+                    ],
                 )
 
                 st.success(f"Personal item '{item_name}' added successfully.")
@@ -264,7 +262,7 @@ def main():
     ])
 
     with tab1:
-        tab_read_inventory()
+        tab_read_inventory(tenant_id)
 
     with tab2:
         tab_add_shared_item(tenant_id)

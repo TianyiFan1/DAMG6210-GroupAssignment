@@ -7,7 +7,7 @@ import logging
 import pandas as pd
 import streamlit as st
 
-from utils.db import execute_transaction, run_query
+from utils.db import execute_transaction, run_query, get_roommate_ids
 
 logger = logging.getLogger(__name__)
 
@@ -25,9 +25,14 @@ def check_authenticated():
         st.stop()
 
 
-def load_proposals() -> pd.DataFrame:
+def load_proposals(tenant_id: int) -> pd.DataFrame:
     """Load all proposals with proposer names, newest first."""
-    sql = """
+    roommate_ids = get_roommate_ids(tenant_id)
+    if not roommate_ids:
+        return pd.DataFrame()
+
+    placeholders = ", ".join("?" for _ in roommate_ids)
+    sql = f"""
     SELECT
         p.Proposal_ID,
         p.Proposed_By_Tenant_ID,
@@ -38,9 +43,10 @@ def load_proposals() -> pd.DataFrame:
     FROM dbo.PROPOSAL p
     INNER JOIN dbo.TENANT t ON p.Proposed_By_Tenant_ID = t.Tenant_ID
     INNER JOIN dbo.PERSON per ON t.Tenant_ID = per.Person_ID
+    WHERE p.Proposed_By_Tenant_ID IN ({placeholders})
     ORDER BY p.Proposal_ID DESC
     """
-    return run_query(sql)
+    return run_query(sql, roommate_ids)
 
 
 def create_proposal_form(tenant_id: int):
@@ -119,11 +125,23 @@ def cast_vote_form(tenant_id: int, active_df: pd.DataFrame):
                 execute_transaction(vote_sql, [proposal_id, tenant_id, is_approved])
 
                 status_sql = """
-                SELECT Status
-                FROM dbo.PROPOSAL
-                WHERE Proposal_ID = ?
+                SELECT p.Status
+                FROM dbo.PROPOSAL p
+                WHERE p.Proposal_ID = ?
+                  AND p.Proposed_By_Tenant_ID IN (
+                      SELECT la.Tenant_ID
+                      FROM dbo.LEASE_AGREEMENT la
+                      WHERE la.Property_ID = (
+                          SELECT TOP 1 la2.Property_ID
+                          FROM dbo.LEASE_AGREEMENT la2
+                          WHERE la2.Tenant_ID = ?
+                            AND CAST(GETDATE() AS DATE) BETWEEN la2.Start_Date AND la2.End_Date
+                          ORDER BY la2.End_Date DESC, la2.Lease_ID DESC
+                      )
+                      AND CAST(GETDATE() AS DATE) BETWEEN la.Start_Date AND la.End_Date
+                  )
                 """
-                status_df = run_query(status_sql, [proposal_id])
+                status_df = run_query(status_sql, [proposal_id, tenant_id])
                 final_status = (
                     status_df.iloc[0]["Status"] if not status_df.empty else "Unknown"
                 )
@@ -157,7 +175,7 @@ def main():
     st.caption("Propose new rules and vote on active house decisions.")
 
     try:
-        proposals_df = load_proposals()
+        proposals_df = load_proposals(tenant_id)
     except Exception as exc:
         st.error(f"Failed to load proposals: {exc}")
         logger.error("Proposal load error: %s", exc)

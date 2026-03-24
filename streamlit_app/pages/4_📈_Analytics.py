@@ -8,7 +8,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from utils.db import run_query
+from utils.db import run_query, get_tenant_property_id
 
 logger = logging.getLogger(__name__)
 
@@ -26,14 +26,26 @@ def check_authenticated():
         st.stop()
 
 
-def load_utility_timeseries() -> pd.DataFrame:
+def load_utility_timeseries(tenant_id: int) -> pd.DataFrame:
     """Load utility timeseries data for charting and analytics."""
+    property_id = get_tenant_property_id(tenant_id)
+    if property_id is None:
+        return pd.DataFrame(columns=["Reading_Date", "Utility_Category", "Provider_Name", "Cost_Amount", "Street_Address"])
+
     sql = """
-    SELECT *
-    FROM dbo.vw_App_Utility_TimeSeries
+    SELECT
+        ur.Reading_Date,
+        ut.Type_Name AS Utility_Category,
+        ur.Provider_Name,
+        ur.Meter_Value AS Cost_Amount,
+        p.Street_Address
+    FROM dbo.UTILITY_READING ur
+    INNER JOIN dbo.UTILITY_TYPE ut ON ur.Utility_Type_ID = ut.Utility_Type_ID
+    INNER JOIN dbo.PROPERTY p ON ur.Property_ID = p.Property_ID
+    WHERE ur.Property_ID = ?
     ORDER BY Reading_Date ASC
     """
-    return run_query(sql)
+    return run_query(sql, [property_id])
 
 
 def render_multiline_chart(df: pd.DataFrame):
@@ -68,12 +80,13 @@ def render_multiline_chart(df: pd.DataFrame):
 def main():
     """Analytics page entrypoint."""
     check_authenticated()
+    tenant_id = int(st.session_state["logged_in_tenant_id"])
 
     st.title("📈 Analytics")
     st.caption("Interactive utility spending trends across your household.")
 
     try:
-        utility_df = load_utility_timeseries()
+        utility_df = load_utility_timeseries(tenant_id)
     except Exception as exc:
         st.error(f"Failed to load utility analytics data: {exc}")
         logger.error("Utility analytics load error: %s", exc)

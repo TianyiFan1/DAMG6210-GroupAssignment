@@ -2,7 +2,7 @@
 
 import logging
 import streamlit as st
-from utils.db import execute_transaction, run_query
+from utils.db import execute_transaction, run_query, get_roommate_ids
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -188,6 +188,67 @@ def render_postlogin_sidebar():
     if st.sidebar.button("🔐 Log Out"):
         clear_login_state()
 
+def render_tenant_onboarding():
+    """Render cold start onboarding form for tenants without an active lease."""
+    st.info("🏠 **Welcome to CoHabitant!** You don't have an active lease yet. Let's get you set up.")
+    
+    with st.form("tenant_onboarding_form", clear_on_submit=True):
+        st.subheader("Join Your House")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            property_code = st.text_input("Property Invite Code", help="Provided by your landlord (corresponds to the Property ID)")
+        with col2:
+            monthly_rent = st.number_input("Monthly Rent ($)", min_value=0.0, value=0.0, step=100.0, format="%.2f")
+        
+        col3, col4 = st.columns(2)
+        with col3:
+            start_date = st.date_input("Lease Start Date")
+        with col4:
+            end_date = st.date_input("Lease End Date")
+        
+        submitted = st.form_submit_button("Join House")
+        
+        if submitted:
+            # Validation
+            if not property_code.strip():
+                st.error("Property Invite Code is required.")
+                return
+            
+            if end_date <= start_date:
+                st.error("End Date must be later than Start Date.")
+                return
+            
+            try:
+                # Convert property code to property ID
+                property_id = int(property_code)
+                tenant_id = st.session_state.logged_in_user_id
+                
+                # UPDATED: Matches your actual schema columns
+                insert_sql = """
+                INSERT INTO dbo.LEASE_AGREEMENT (
+                    Property_ID,
+                    Tenant_ID,
+                    Start_Date,
+                    End_Date,
+                    Move_In_Date
+                )
+                VALUES (?, ?, ?, ?, ?)
+                """
+                execute_transaction(
+                    insert_sql,
+                    [property_id, tenant_id, start_date, end_date, start_date]
+                )
+                st.success(f"✅ Lease created successfully! Redirecting...")
+                logger.info("Lease created for tenant %s on property %s", tenant_id, property_id)
+                st.rerun()
+            except ValueError:
+                st.error("Property Invite Code must be a valid number.")
+            except Exception as exc:
+                st.error(f"Failed to create lease: {exc}")
+                logger.error("Lease creation failed: %s", exc)
+
+
 def render_postlogin_home():
     """Render role-aware post-login landing view."""
     st.title("CoHabitant Dashboard")
@@ -208,12 +269,48 @@ def render_postlogin_home():
             st.warning("Could not load landlord metrics.")
 
     elif role == "Tenant":
-        st.success("Tenant access granted. Use the sidebar to manage your house.")
         tenant_id = st.session_state.logged_in_user_id
+        
+        # Cold start check: Do tenants have an active lease?
         try:
+            lease_count_df = run_query("SELECT COUNT(*) AS Cnt FROM dbo.LEASE_AGREEMENT WHERE Tenant_ID = ?", [tenant_id])
+            lease_count = int(lease_count_df.iloc[0]["Cnt"]) if not lease_count_df.empty else 0
+        except Exception as exc:
+            st.warning("Could not check lease status.")
+            lease_count = 0
+        
+        # If no lease, show onboarding
+        if lease_count == 0:
+            render_tenant_onboarding()
+            return
+        
+        # Otherwise, show normal dashboard
+        st.success("Tenant access granted. Use the sidebar to manage your house.")
+        try:
+            roommate_ids = get_roommate_ids(tenant_id)
+            if not roommate_ids:
+                roommate_ids = [tenant_id]
+
+            placeholders = ", ".join("?" for _ in roommate_ids)
             bal_df = run_query("SELECT Current_Net_Balance FROM dbo.TENANT WHERE Tenant_ID = ?", [tenant_id])
-            chores_df = run_query("SELECT COUNT(*) AS Cnt FROM dbo.CHORE_ASSIGNMENT WHERE Assigned_Tenant_ID = ? AND Status = 'Pending'", [tenant_id])
-            props_df = run_query("SELECT COUNT(*) AS Cnt FROM dbo.PROPOSAL WHERE Status = 'Active'")
+            chores_df = run_query(
+                f"""
+                SELECT COUNT(*) AS Cnt
+                FROM dbo.CHORE_ASSIGNMENT
+                WHERE Assigned_Tenant_ID IN ({placeholders})
+                  AND Status = 'Pending'
+                """,
+                roommate_ids,
+            )
+            props_df = run_query(
+                f"""
+                SELECT COUNT(*) AS Cnt
+                FROM dbo.PROPOSAL
+                WHERE Status = 'Active'
+                  AND Proposed_By_Tenant_ID IN ({placeholders})
+                """,
+                roommate_ids,
+            )
 
             balance = bal_df.iloc[0]["Current_Net_Balance"] if not bal_df.empty else 0.00
             pending_chores = int(chores_df.iloc[0]["Cnt"]) if not chores_df.empty else 0

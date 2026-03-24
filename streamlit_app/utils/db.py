@@ -169,24 +169,97 @@ def execute_transaction(
         if cursor:
             cursor.close()
 
-
-def get_active_tenants() -> pd.DataFrame:
-    """
-    Fetch list of all active tenants for dropdown selection.
-    
-    Returns:
-        pd.DataFrame: Tenant listing with Tenant_ID, Full_Name, Email
-    """
+def get_tenant_property_id(tenant_id: int) -> int | None:
+    """Return the active Property_ID for a tenant, or None if no active lease exists."""
     sql = """
-    SELECT 
+    SELECT TOP 1
+        la.Property_ID
+    FROM dbo.LEASE_AGREEMENT la
+    WHERE la.Tenant_ID = ?
+      AND CAST(GETDATE() AS DATE) BETWEEN la.Start_Date AND la.End_Date
+    ORDER BY la.End_Date DESC, la.Lease_ID DESC
+    """
+    df = run_query(sql, [tenant_id])
+    if df.empty:
+        return None
+    return int(df.iloc[0]["Property_ID"])
+
+
+def get_roommate_ids(tenant_id: int) -> list[int]:
+    """Return all active Tenant_IDs in the same active property as the given tenant."""
+    property_id = get_tenant_property_id(tenant_id)
+    if property_id is None:
+        return []
+
+    sql = """
+    SELECT DISTINCT
+        la.Tenant_ID
+    FROM dbo.LEASE_AGREEMENT la
+    WHERE la.Property_ID = ?
+      AND CAST(GETDATE() AS DATE) BETWEEN la.Start_Date AND la.End_Date
+    ORDER BY la.Tenant_ID
+    """
+    df = run_query(sql, [property_id])
+    if df.empty:
+        return []
+    return [int(row["Tenant_ID"]) for _, row in df.iterrows()]
+
+
+def load_roommates_details(tenant_id: int) -> pd.DataFrame:
+    """Return roommate contact details for tenants sharing the same active property."""
+    roommate_ids = [rid for rid in get_roommate_ids(tenant_id) if rid != tenant_id]
+    if not roommate_ids:
+        return pd.DataFrame(columns=["First_Name", "Last_Name", "Email", "Phone_Number"])
+
+    placeholders = ", ".join("?" for _ in roommate_ids)
+    sql = f"""
+    SELECT
+        p.First_Name,
+        p.Last_Name,
+        p.Email,
+        p.Phone_Number
+    FROM dbo.TENANT t
+    INNER JOIN dbo.PERSON p ON p.Person_ID = t.Tenant_ID
+    WHERE t.Tenant_ID IN ({placeholders})
+    ORDER BY p.First_Name, p.Last_Name
+    """
+    return run_query(sql, roommate_ids)
+
+
+def get_active_tenants(tenant_id: int | None = None) -> pd.DataFrame:
+    """
+    Fetch active tenants.
+
+    If tenant_id is provided, the result is scoped to the same roommate set.
+    """
+    if tenant_id is None:
+        sql = """
+        SELECT 
+            t.Tenant_ID,
+            p.First_Name + ' ' + p.Last_Name AS Full_Name,
+            p.Email
+        FROM dbo.TENANT t
+        JOIN dbo.PERSON p ON t.Tenant_ID = p.Person_ID
+        ORDER BY p.First_Name
+        """
+        return run_query(sql)
+
+    roommate_ids = get_roommate_ids(tenant_id)
+    if not roommate_ids:
+        return pd.DataFrame(columns=["Tenant_ID", "Full_Name", "Email"])
+
+    placeholders = ", ".join("?" for _ in roommate_ids)
+    sql = f"""
+    SELECT
         t.Tenant_ID,
         p.First_Name + ' ' + p.Last_Name AS Full_Name,
         p.Email
     FROM dbo.TENANT t
-    JOIN dbo.PERSON p ON t.Tenant_ID = p.Person_ID
-    ORDER BY p.First_Name
+    INNER JOIN dbo.PERSON p ON t.Tenant_ID = p.Person_ID
+    WHERE t.Tenant_ID IN ({placeholders})
+    ORDER BY p.First_Name, p.Last_Name
     """
-    return run_query(sql)
+    return run_query(sql, roommate_ids)
 
 
 def get_tenant_name(tenant_id: int) -> str:

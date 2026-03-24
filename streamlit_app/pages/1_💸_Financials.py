@@ -17,7 +17,7 @@ from datetime import date
 from utils.db import (
     run_query,
     execute_transaction,
-    get_tenant_name
+    get_roommate_ids
 )
 
 logger = logging.getLogger(__name__)
@@ -36,14 +36,21 @@ def check_authenticated():
         st.stop()
 
 
-def load_active_balances() -> pd.DataFrame:
+def load_active_balances(tenant_id: int) -> pd.DataFrame:
     """
     Load tenant balances using the vw_App_Ledger_ActiveBalances view.
     
     Returns:
         pd.DataFrame: Tenant balances and debt information
     """
-    sql = """
+    roommate_ids = get_roommate_ids(tenant_id)
+    if not roommate_ids:
+        return pd.DataFrame(
+            columns=["Tenant_ID", "Full_Name", "Current_Net_Balance", "Total_Pending_Debts", "Lifetime_Paid"]
+        )
+
+    placeholders = ", ".join("?" for _ in roommate_ids)
+    sql = f"""
     SELECT 
         Tenant_ID,
         Full_Name,
@@ -51,9 +58,10 @@ def load_active_balances() -> pd.DataFrame:
         Total_Pending_Debts,
         Lifetime_Paid
     FROM dbo.vw_App_Ledger_ActiveBalances
+    WHERE Tenant_ID IN ({placeholders})
     ORDER BY Current_Net_Balance DESC
     """
-    return run_query(sql)
+    return run_query(sql, roommate_ids)
 
 
 def render_balance_chart(df: pd.DataFrame):
@@ -323,10 +331,11 @@ def delete_expense_form():
                 try:
                     sql_delete = """
                     DELETE FROM dbo.EXPENSE 
-                    WHERE Expense_ID = ?;
+                                        WHERE Expense_ID = ?
+                                            AND Paid_By_Tenant_ID = ?;
                     """
                     
-                    execute_transaction(sql_delete, [expense_id])
+                                        execute_transaction(sql_delete, [expense_id, st.session_state.logged_in_tenant_id])
                     
                     st.success(
                         f"✅ Expense {expense_id} deleted successfully.\n"
@@ -360,7 +369,7 @@ def main():
     with tab1:
         st.markdown("### Active Tenant Balances")
         try:
-            balances_df = load_active_balances()
+            balances_df = load_active_balances(int(st.session_state.logged_in_tenant_id))
             
             if balances_df.empty:
                 st.warning("⚠️ No balance data available")
