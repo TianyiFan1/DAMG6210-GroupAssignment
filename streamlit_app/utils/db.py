@@ -147,8 +147,11 @@ def execute_transaction(
         else:
             cursor.execute(sql)
         
-        # Fetch return code if procedure returns one
-        return_code = cursor.fetchval() if cursor.description is None else 0
+        # Try to fetch return code, but skip safely if it's a basic INSERT/UPDATE/DELETE
+        try:
+            return_code = cursor.fetchval()
+        except pyodbc.ProgrammingError:
+            return_code = 0
         
         # Commit transaction
         conn.commit()
