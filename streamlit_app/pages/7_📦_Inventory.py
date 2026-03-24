@@ -90,6 +90,20 @@ def tab_read_inventory(tenant_id: int):
             st.info("No inventory items found.")
             return
 
+        # Add color coding for low stock items
+        low_stock_items = df[(df['Item_Type'] == 'Shared') & 
+                           (df['Low_Stock_Threshold'].notna()) & 
+                           (df['Total_Quantity'] <= df['Low_Stock_Threshold'])]
+        
+        if not low_stock_items.empty:
+            st.warning(f"⚠️ {len(low_stock_items)} shared item(s) below stock threshold!")
+            with st.expander("📦 Low Stock Items", expanded=True):
+                st.dataframe(
+                    low_stock_items[['Item_Name', 'Total_Quantity', 'Low_Stock_Threshold', 'Storage_Location']],
+                    use_container_width=True,
+                    hide_index=True
+                )
+
         st.dataframe(df, width="stretch", hide_index=True)
         logger.info("Loaded inventory items")
     except Exception as exc:
@@ -246,6 +260,71 @@ def tab_add_personal_item(tenant_id: int):
                 logger.error("Personal item add failed for tenant %s: %s", tenant_id, exc)
 
 
+def tab_update_quantity(tenant_id: int):
+    """Update Quantity tab - quickly adjust stock levels."""
+    st.subheader("Update Item Quantity")
+    st.caption("Quickly adjust stock when items are used or restocked.")
+
+    try:
+        df = load_inventory_items(tenant_id)
+        if df.empty:
+            st.info("No inventory items to update.")
+            return
+
+        # Filter to shared items only (can't update personal items yet)
+        shared_items = df[df['Item_Type'] == 'Shared'].copy()
+        if shared_items.empty:
+            st.info("No shared items found. Add some first!")
+            return
+
+        item_options = {
+            f"{row['Item_Name']} (Current: {int(row['Total_Quantity'])} units)": int(row['Item_ID'])
+            for _, row in shared_items.iterrows()
+        }
+
+        with st.form("update_quantity_form"):
+            selected_label = st.selectbox(
+                "Select Item to Update",
+                list(item_options.keys()),
+                help="Choose an item to adjust quantity"
+            )
+            
+            # Get current quantity
+            item_id = item_options[selected_label]
+            current_item = shared_items[shared_items['Item_ID'] == item_id].iloc[0]
+            current_qty = int(current_item['Total_Quantity'])
+            
+            new_quantity = st.number_input(
+                "New Quantity",
+                min_value=0,
+                max_value=10000,
+                value=current_qty,
+                step=1
+            )
+            
+            qty_change = new_quantity - current_qty
+            if qty_change != 0:
+                change_label = f"➕ +{qty_change}" if qty_change > 0 else f"➖ {qty_change}"
+                st.caption(f"Change: {change_label}")
+            
+            submitted = st.form_submit_button("💾 Update Quantity")
+
+            if submitted:
+                try:
+                    update_sql = "UPDATE dbo.INVENTORY_ITEM SET Total_Quantity = ? WHERE Item_ID = ?"
+                    execute_transaction(update_sql, [new_quantity, item_id])
+                    st.success(f"✅ Updated {current_item['Item_Name']} to {new_quantity} units")
+                    logger.info("Inventory updated for %s by tenant %s", item_id, tenant_id)
+                    st.rerun()
+                except Exception as exc:
+                    st.error(f"Failed to update quantity: {exc}")
+                    logger.error("Inventory update failed for item %s: %s", item_id, exc)
+
+    except Exception as exc:
+        st.error(f"Failed to load inventory for update: {exc}")
+        logger.error("Inventory load failed for update: %s", exc)
+
+
 def main():
     """Inventory entrypoint."""
     check_tenant_authenticated()
@@ -255,10 +334,11 @@ def main():
     st.title("📦 Inventory")
     st.caption("Manage shared and personal items.")
 
-    tab1, tab2, tab3 = st.tabs([
+    tab1, tab2, tab3, tab4 = st.tabs([
         "📋 All Items",
         "➕ Add Shared Item",
         "🔒 Add Personal Item",
+        "📝 Update Quantity",
     ])
 
     with tab1:
@@ -269,6 +349,9 @@ def main():
 
     with tab3:
         tab_add_personal_item(tenant_id)
+    
+    with tab4:
+        tab_update_quantity(tenant_id)
 
 
 if __name__ == "__main__":

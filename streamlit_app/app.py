@@ -124,6 +124,7 @@ def render_register_tab():
 def render_login_tab():
     """Render login form and set authenticated session values."""
     st.subheader("Sign in")
+    st.caption("Choose your account and continue to your role-based dashboard.")
     try:
         people_df = load_people_for_login()
     except Exception as exc:
@@ -137,7 +138,7 @@ def render_login_tab():
     login_options = {f"{row['First_Name']} {row['Last_Name']} ({row['Email']})": int(row["Person_ID"]) for _, row in people_df.iterrows()}
 
     with st.form("login_form"):
-        selected_user = st.selectbox("Select account", list(login_options.keys()))
+        selected_user = st.selectbox("Account", list(login_options.keys()), help="Select the profile you want to use for this session.")
         do_login = st.form_submit_button("Log In", type="primary")
 
         if do_login:
@@ -173,6 +174,7 @@ def render_prelogin_view():
     with center:
         st.title("🏠 CoHabitant")
         st.caption("Shared-living operations platform")
+        st.info("Tip: Use Tab/Shift+Tab to navigate inputs and Enter to submit forms.")
         login_tab, register_tab = st.tabs(["Login", "Register"])
         with login_tab:
             render_login_tab()
@@ -273,7 +275,15 @@ def render_postlogin_home():
         
         # Cold start check: Do tenants have an active lease?
         try:
-            lease_count_df = run_query("SELECT COUNT(*) AS Cnt FROM dbo.LEASE_AGREEMENT WHERE Tenant_ID = ?", [tenant_id])
+            lease_count_df = run_query(
+                """
+                SELECT COUNT(*) AS Cnt
+                FROM dbo.LEASE_AGREEMENT
+                WHERE Tenant_ID = ?
+                  AND CAST(GETDATE() AS DATE) BETWEEN Start_Date AND End_Date
+                """,
+                [tenant_id],
+            )
             lease_count = int(lease_count_df.iloc[0]["Cnt"]) if not lease_count_df.empty else 0
         except Exception as exc:
             st.warning("Could not check lease status.")

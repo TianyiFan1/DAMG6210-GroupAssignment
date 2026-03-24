@@ -70,9 +70,24 @@ def load_my_lease_details(tenant_id: int) -> pd.DataFrame:
     INNER JOIN dbo.LANDLORD l ON l.Landlord_ID = p.Landlord_ID
     INNER JOIN dbo.PERSON pers ON pers.Person_ID = l.Landlord_ID
     WHERE la.Tenant_ID = ?
+            AND CAST(GETDATE() AS DATE) BETWEEN la.Start_Date AND la.End_Date
     ORDER BY la.Start_Date DESC
     """
     return run_query(sql, [tenant_id])
+
+
+def load_my_active_lease_window(tenant_id: int) -> pd.DataFrame:
+        """Return active lease date window for current tenant."""
+        sql = """
+        SELECT TOP 1
+                Start_Date,
+                End_Date
+        FROM dbo.LEASE_AGREEMENT
+        WHERE Tenant_ID = ?
+            AND CAST(GETDATE() AS DATE) BETWEEN Start_Date AND End_Date
+        ORDER BY End_Date DESC, Lease_ID DESC
+        """
+        return run_query(sql, [tenant_id])
 
 
 def tab_my_lease_details(tenant_id: int):
@@ -125,7 +140,23 @@ def tab_my_lease_details(tenant_id: int):
         if roommates_df.empty:
             st.info("No active roommates found for your current property.")
         else:
-            st.dataframe(roommates_df, width="stretch", hide_index=True)
+            # Display roommates with quick contact buttons
+            for _, roommate in roommates_df.iterrows():
+                col1, col2, col3, col4 = st.columns([2, 1.5, 1.5, 1])
+                with col1:
+                    st.write(f"**{roommate['First_Name']} {roommate['Last_Name']}**")
+                with col2:
+                    if roommate.get('Email'):
+                        st.markdown(f"[📧 Email](mailto:{roommate['Email']})")
+                    else:
+                        st.write("—")
+                with col3:
+                    if roommate.get('Phone_Number'):
+                        st.markdown(f"[📞 Call](tel:{roommate['Phone_Number']})")
+                    else:
+                        st.write("—")
+                with col4:
+                    st.caption(f"@{roommate['First_Name'].lower()}")
         
         st.divider()
         
@@ -182,25 +213,16 @@ def tab_create_sublease(tenant_id: int):
     """Create Sublease tab (CREATE)."""
     st.subheader("Create Sublease")
 
-    try:
-        other_tenants_df = load_other_tenants(tenant_id)
-    except Exception as exc:
-        st.error(f"Could not load tenants: {exc}")
-        logger.error("Tenant load for sublease failed: %s", exc)
+    lease_window_df = load_my_active_lease_window(tenant_id)
+    if lease_window_df.empty:
+        st.info("You need an active lease before creating a sublease.")
         return
 
-    if other_tenants_df.empty:
-        st.info("No other tenants available for sublease.")
-        return
-
-    tenant_options = {
-        f"#{int(row['Tenant_ID'])} | {row['Full_Name']}": int(row["Tenant_ID"])
-        for _, row in other_tenants_df.iterrows()
-    }
+    lease_start = lease_window_df.iloc[0]["Start_Date"]
+    lease_end = lease_window_df.iloc[0]["End_Date"]
+    st.caption(f"Your active lease window: {lease_start} to {lease_end}")
 
     with st.form("create_sublease_form", clear_on_submit=True):
-        selected_tenant = st.selectbox("Sublease to Tenant", list(tenant_options.keys()))
-
         start_date = st.date_input("Start Date", value=date.today())
         end_date = st.date_input("End Date", value=date.today())
         rent_amount = st.number_input("Pro-Rated Rent Amount", min_value=0.0, value=0.0, step=50.0, format="%.2f")
@@ -212,7 +234,9 @@ def tab_create_sublease(tenant_id: int):
                 st.error("End Date must be later than Start Date.")
                 return
 
-            sub_tenant_id = tenant_options[selected_tenant]
+            if start_date < lease_start or end_date > lease_end:
+                st.error("Sublease period must be inside your active lease window.")
+                return
 
             try:
                 insert_sql = """
@@ -226,10 +250,10 @@ def tab_create_sublease(tenant_id: int):
                 """
                 execute_transaction(
                     insert_sql,
-                    [sub_tenant_id, start_date, end_date, rent_amount],
+                    [tenant_id, start_date, end_date, rent_amount],
                 )
                 st.success("Sublease created successfully.")
-                logger.info("Sublease created by tenant %s for tenant %s", tenant_id, sub_tenant_id)
+                logger.info("Sublease created by tenant %s", tenant_id)
                 st.rerun()
             except Exception as exc:
                 st.error(f"Failed to create sublease: {exc}")

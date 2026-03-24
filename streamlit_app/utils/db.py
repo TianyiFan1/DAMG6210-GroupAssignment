@@ -3,6 +3,8 @@ Database layer for CoHabitant application.
 Provides connection pooling, query execution, and transaction management.
 """
 
+import os
+import time
 import logging
 import pyodbc
 import pandas as pd
@@ -12,11 +14,64 @@ from typing import List, Dict, Any, Tuple
 logger = logging.getLogger(__name__)
 
 
-@st.cache_resource
-def get_db_connection():
+def _resolve_database_config() -> Dict[str, Any]:
+    """Resolve DB config using environment profile with secrets fallback."""
+    app_env = os.getenv("COHABITANT_ENV", "development").lower()
+
+    if "database_profiles" in st.secrets:
+        profiles = st.secrets["database_profiles"]
+        if app_env in profiles:
+            cfg = dict(profiles[app_env])
+            logger.info("Using database profile '%s' from secrets", app_env)
+            return cfg
+
+    if "database" in st.secrets:
+        cfg = dict(st.secrets["database"])
+        logger.info("Using default database profile from secrets")
+        return cfg
+
+    raise Exception(
+        "Missing database configuration. Add [database] or [database_profiles.<env>] "
+        "to .streamlit/secrets.toml"
+    )
+
+
+def _build_connection_string(cfg: Dict[str, Any]) -> str:
+    """Build SQL Server connection string from resolved config."""
+    server = cfg.get("server")
+    database = cfg.get("database")
+    driver = cfg.get("driver", "{ODBC Driver 17 for SQL Server}")
+    trusted_connection = str(cfg.get("trusted_connection", "yes")).lower()
+
+    if not server or not database:
+        raise Exception("Database config requires 'server' and 'database'.")
+
+    if trusted_connection == "yes":
+        return (
+            f"DRIVER={driver};"
+            f"SERVER={server};"
+            f"DATABASE={database};"
+            "Trusted_Connection=yes;"
+        )
+
+    username = cfg.get("username")
+    password = cfg.get("password")
+    if not username or not password:
+        raise Exception("SQL auth requires 'username' and 'password'.")
+
+    return (
+        f"DRIVER={driver};"
+        f"SERVER={server};"
+        f"DATABASE={database};"
+        f"UID={username};"
+        f"PWD={password};"
+    )
+
+
+def get_db_connection(max_retries: int = 3, base_delay_seconds: float = 0.4):
     """
-    Returns a cached database connection singleton.
-    Uses st.secrets to load connection string from .streamlit/secrets.toml.
+    Return a fresh resilient database connection.
+    Uses st.secrets profile resolution and lightweight retry with backoff.
     
     Returns:
         pyodbc.Connection: Active database connection to CoHabitant DB
@@ -24,47 +79,27 @@ def get_db_connection():
     Raises:
         Exception: If connection fails or secrets are missing
     """
-    try:
-        server = st.secrets["database"]["server"]
-        database = st.secrets["database"]["database"]
-        driver = st.secrets["database"]["driver"]
-        trusted_connection = st.secrets["database"].get("trusted_connection", "yes")
-        
-        # Build connection string based on authentication method
-        if trusted_connection.lower() == "yes":
-            # Windows Authentication
-            conn_str = (
-                f"DRIVER={driver};"
-                f"SERVER={server};"
-                f"DATABASE={database};"
-                f"Trusted_Connection=yes;"
-            )
-        else:
-            # SQL Server Authentication
-            username = st.secrets["database"]["username"]
-            password = st.secrets["database"]["password"]
-            conn_str = (
-                f"DRIVER={driver};"
-                f"SERVER={server};"
-                f"DATABASE={database};"
-                f"UID={username};"
-                f"PWD={password};"
-            )
-        
-        connection = pyodbc.connect(conn_str)
-        connection.setdecoding(pyodbc.SQL_CHAR, encoding='utf-8')
-        connection.setdecoding(pyodbc.SQL_WCHAR, encoding='utf-8')
-        logger.info(f"✅ Connected to {database} on {server}")
-        return connection
-        
-    except KeyError as e:
-        logger.error(f"❌ Missing database secret: {e}")
-        raise Exception(
-            f"Missing secret configuration. Please ensure .streamlit/secrets.toml has all required keys: {e}"
-        )
-    except pyodbc.Error as e:
-        logger.error(f"❌ Database connection failed: {e}")
-        raise Exception(f"Failed to connect to database: {e}")
+    cfg = _resolve_database_config()
+    conn_str = _build_connection_string(cfg)
+    server = cfg.get("server")
+    database = cfg.get("database")
+
+    last_error = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            connection = pyodbc.connect(conn_str, timeout=8)
+            connection.setdecoding(pyodbc.SQL_CHAR, encoding="utf-8")
+            connection.setdecoding(pyodbc.SQL_WCHAR, encoding="utf-8")
+            logger.info("✅ Connected to %s on %s (attempt %s)", database, server, attempt)
+            return connection
+        except pyodbc.Error as exc:
+            last_error = exc
+            logger.warning("DB connection attempt %s/%s failed: %s", attempt, max_retries, exc)
+            if attempt < max_retries:
+                time.sleep(base_delay_seconds * (2 ** (attempt - 1)))
+
+    logger.error("❌ Database connection failed after retries: %s", last_error)
+    raise Exception(f"Failed to connect to database after {max_retries} attempts: {last_error}")
 
 
 def run_query(sql: str, params: List[Any] = None) -> pd.DataFrame:
@@ -82,6 +117,7 @@ def run_query(sql: str, params: List[Any] = None) -> pd.DataFrame:
     Raises:
         Exception: If query execution fails
     """
+    conn = None
     cursor = None
     try:
         conn = get_db_connection()
@@ -109,6 +145,8 @@ def run_query(sql: str, params: List[Any] = None) -> pd.DataFrame:
     finally:
         if cursor:
             cursor.close()
+        if conn:
+            conn.close()
 
 
 def execute_transaction(
@@ -147,10 +185,11 @@ def execute_transaction(
         else:
             cursor.execute(sql)
         
-        # Try to fetch return code, but skip safely if it's a basic INSERT/UPDATE/DELETE
+        # Try to fetch a scalar return payload if one exists.
         try:
-            return_code = cursor.fetchval()
-        except pyodbc.ProgrammingError:
+            fetched = cursor.fetchval()
+            return_code = int(fetched) if fetched is not None else 0
+        except (pyodbc.ProgrammingError, TypeError, ValueError):
             return_code = 0
         
         # Commit transaction
@@ -168,6 +207,8 @@ def execute_transaction(
     finally:
         if cursor:
             cursor.close()
+        if conn:
+            conn.close()
 
 def get_tenant_property_id(tenant_id: int) -> int | None:
     """Return the active Property_ID for a tenant, or None if no active lease exists."""

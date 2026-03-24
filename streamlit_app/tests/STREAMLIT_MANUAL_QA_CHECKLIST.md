@@ -7,6 +7,10 @@ Run this after `pytest` is green to catch UI/runtime issues quickly.
 2. Confirm `.streamlit/secrets.toml` points to your intended test database.
 3. Start app: `streamlit run app.py`.
 
+## Automated Smoke
+1. Run `python -m pytest -q tests/test_ui_e2e_smoke.py` to validate headless app boot and key page routes.
+2. If it fails on CLI availability, ensure Streamlit is installed in the active venv.
+
 ## Tenant Login Flow
 1. Log in as a tenant with an active lease.
 2. Verify dashboard loads without Python traceback.

@@ -59,7 +59,7 @@ def build_expense_transaction_sql_params(
     roommates: Iterable[int] | None,
     custom_owed_amounts: Dict[int, float] | None = None,
 ) -> Tuple[str, List[object], float]:
-    """Build one SQL transaction and params for expense + shares + balances + payment."""
+    """Build one SQL transaction and params for expense + shares + balance updates."""
     roster = normalize_roommates(payer_tenant_id, roommates)
 
     if split_policy == "Custom":
@@ -96,11 +96,5 @@ def build_expense_transaction_sql_params(
         "UPDATE dbo.TENANT SET Current_Net_Balance = ISNULL(Current_Net_Balance, 0) + ? WHERE Tenant_ID = ?;"
     )
     params.extend([float(payer_gain), int(payer_tenant_id)])
-
-    # Lifetime_Paid is computed in view from PAYMENT table.
-    sql_statements.append(
-        "INSERT INTO dbo.PAYMENT (Payer_Tenant_ID, Amount, Payment_Date, Note) VALUES (?, ?, ?, ?);"
-    )
-    params.extend([int(payer_tenant_id), float(total_amount), date_incurred, (description.strip() or notes.strip() or None)])
 
     return " ".join(sql_statements), params, payer_gain

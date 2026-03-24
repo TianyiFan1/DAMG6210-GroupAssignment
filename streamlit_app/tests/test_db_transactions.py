@@ -31,13 +31,12 @@ def test_equal_split_builds_expected_sql_and_params(mocker):
     assert sql.count("INSERT INTO dbo.EXPENSE_SHARE") == 2
     assert sql.count("UPDATE dbo.TENANT SET Current_Net_Balance = ISNULL(Current_Net_Balance, 0) - ?") == 2
     assert "UPDATE dbo.TENANT SET Current_Net_Balance = ISNULL(Current_Net_Balance, 0) + ?" in sql
-    assert "INSERT INTO dbo.PAYMENT" in sql
+    assert "INSERT INTO dbo.PAYMENT" not in sql
 
     assert payer_gain == pytest.approx(80.0)
     assert params[0:4] == [1, 120.0, date(2026, 3, 24), "Equal"]
-    assert params[-6] == pytest.approx(80.0)
-    assert params[-5] == 1
-    assert params[-3] == 120.0
+    assert params[-2] == pytest.approx(80.0)
+    assert params[-1] == 1
 
     execute_mock.assert_called_once_with(sql, params)
 
@@ -63,9 +62,8 @@ def test_custom_split_builds_exact_roommate_owed_values(mocker):
     assert payer_gain == pytest.approx(70.0)
     assert 20.0 in params
     assert 50.0 in params
-    assert params[-6] == pytest.approx(70.0)
-    assert params[-5] == 10
-    assert params[-3] == 150.0
+    assert params[-2] == pytest.approx(70.0)
+    assert params[-1] == 10
 
     execute_mock.assert_called_once_with(sql, params)
 

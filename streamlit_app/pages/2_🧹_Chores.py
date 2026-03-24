@@ -4,6 +4,7 @@ Track household chore performance and complete pending assignments.
 """
 
 import logging
+from datetime import date
 import pandas as pd
 import plotly.express as px
 import streamlit as st
@@ -62,6 +63,43 @@ def load_my_pending_chores(tenant_id: int) -> pd.DataFrame:
     return run_query(sql, [tenant_id])
 
 
+def load_my_completed_chores(tenant_id: int) -> pd.DataFrame:
+    """Load recently completed chores assigned to the current tenant (last 30 days)."""
+    sql = """
+    SELECT
+        ca.Assignment_ID,
+        cd.Task_Name,
+        cd.Difficulty_Weight,
+        ca.Due_Date,
+        ca.Completion_Date,
+        DATEDIFF(DAY, ca.Due_Date, ca.Completion_Date) AS Days_Late,
+        ca.Status
+    FROM dbo.CHORE_ASSIGNMENT ca
+    INNER JOIN dbo.CHORE_DEFINITION cd ON ca.Chore_ID = cd.Chore_ID
+    WHERE ca.Assigned_Tenant_ID = ?
+      AND ca.Status = 'Completed'
+      AND ca.Completion_Date >= DATEADD(DAY, -30, CAST(GETDATE() AS DATE))
+    ORDER BY ca.Completion_Date DESC
+    """
+    return run_query(sql, [tenant_id])
+
+
+def load_my_chore_stats(tenant_id: int) -> dict:
+    """Load completion statistics for the current tenant."""
+    sql = """
+    SELECT
+        COUNT(CASE WHEN Status = 'Pending' THEN 1 END) AS Pending_Count,
+        COUNT(CASE WHEN Status = 'Completed' THEN 1 END) AS Completed_Count,
+        COUNT(CASE WHEN Status = 'Pending' AND Due_Date < CAST(GETDATE() AS DATE) THEN 1 END) AS Overdue_Count
+    FROM dbo.CHORE_ASSIGNMENT
+    WHERE Assigned_Tenant_ID = ?
+    """
+    df = run_query(sql, [tenant_id])
+    if df.empty:
+        return {"Pending_Count": 0, "Completed_Count": 0, "Overdue_Count": 0}
+    return df.iloc[0].to_dict()
+
+
 def render_leaderboard(leaderboard_df: pd.DataFrame):
     """Render leaderboard table and score chart."""
     if leaderboard_df.empty:
@@ -100,6 +138,7 @@ def render_leaderboard(leaderboard_df: pd.DataFrame):
 def render_mark_complete_form(my_chores_df: pd.DataFrame):
     """Render form for marking a pending chore as complete."""
     st.subheader("Mark Chore Complete")
+    st.caption("Select a pending assignment and submit to mark it complete.")
 
     if my_chores_df.empty:
         st.success("🎉 You have no pending chores.")
@@ -114,7 +153,11 @@ def render_mark_complete_form(my_chores_df: pd.DataFrame):
     }
 
     with st.form("complete_chore_form", clear_on_submit=True):
-        selected_label = st.selectbox("Select a pending chore", list(choices.keys()))
+        selected_label = st.selectbox(
+            "Pending Chore",
+            list(choices.keys()),
+            help="Choose one assignment from your pending list.",
+        )
         submitted = st.form_submit_button("✅ Mark as Completed")
 
         if submitted:
@@ -143,6 +186,84 @@ def render_mark_complete_form(my_chores_df: pd.DataFrame):
                 logger.error("Failed to complete chore assignment %s: %s", assignment_id, exc)
 
 
+def render_assign_chore_form(tenant_id: int):
+    """Render form to assign chores to roommates."""
+    st.subheader("Assign Chore to Roommate")
+    st.caption("Create or reassign a chore to a roommate.")
+    
+    try:
+        roommate_ids = get_roommate_ids(tenant_id)
+        if not roommate_ids or len(roommate_ids) < 2:
+            st.info("You need roommates to assign chores to.")
+            return
+        
+        # Exclude self from assignment options
+        other_roommates = [rid for rid in roommate_ids if rid != tenant_id]
+        if not other_roommates:
+            st.info("No other roommates available to assign to.")
+            return
+        
+        with st.form("assign_chore_form", clear_on_submit=True):
+            from utils.db import get_tenant_name
+            
+            # Load available chores
+            chore_sql = """
+            SELECT Chore_ID, Task_Name, Frequency
+            FROM dbo.CHORE_DEFINITION
+            ORDER BY Task_Name
+            """
+            chores_df = run_query(chore_sql)
+            
+            if chores_df.empty:
+                st.warning("No chores defined yet. Create some first in House Hub!")
+                return
+            
+            chore_options = {
+                int(row['Chore_ID']): f"{row['Task_Name']} ({row['Frequency']})"
+                for _, row in chores_df.iterrows()
+            }
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                selected_chore_label = st.selectbox(
+                    "Select Chore",
+                    options=list(chore_options.values()),
+                    help="Pick a chore to assign"
+                )
+                selected_chore_id = [k for k, v in chore_options.items() if v == selected_chore_label][0]
+            
+            with col2:
+                assignee_id = st.selectbox(
+                    "Assign To",
+                    options=other_roommates,
+                    format_func=lambda rid: get_tenant_name(rid),
+                    help="Choose which roommate to assign this to"
+                )
+            
+            due_date = st.date_input("Due Date", value=date.today())
+            
+            submitted = st.form_submit_button("➕ Assign Chore")
+            
+            if submitted:
+                try:
+                    insert_sql = """
+                    INSERT INTO dbo.CHORE_ASSIGNMENT (Chore_ID, Assigned_Tenant_ID, Due_Date, Status)
+                    VALUES (?, ?, ?, 'Pending')
+                    """
+                    execute_transaction(insert_sql, [selected_chore_id, assignee_id, due_date])
+                    st.success(f"✅ Assigned {selected_chore_label} to {get_tenant_name(assignee_id)} due {due_date}")
+                    logger.info("Chore assigned by tenant %s to tenant %s", tenant_id, assignee_id)
+                    st.rerun()
+                except Exception as exc:
+                    st.error(f"Failed to assign chore: {exc}")
+                    logger.error("Chore assignment failed: %s", exc)
+    
+    except Exception as exc:
+        st.error(f"Failed to load assignment form: {exc}")
+        logger.error("Assignment form load failed: %s", exc)
+
+
 def main():
     """Chores page entrypoint."""
     check_authenticated()
@@ -152,7 +273,23 @@ def main():
     st.title("🧹 Chores")
     st.caption("Track household contributions and close out pending tasks.")
 
-    tab1, tab2 = st.tabs(["🏆 Leaderboard", "📋 My Pending Chores"])
+    # Show personal stats at top
+    try:
+        stats = load_my_chore_stats(tenant_id)
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("📋 Pending", int(stats.get("Pending_Count", 0)))
+        with col2:
+            st.metric("✅ Completed (30d)", int(stats.get("Completed_Count", 0)))
+        with col3:
+            if int(stats.get("Overdue_Count", 0)) > 0:
+                st.metric("⚠️ Overdue", int(stats.get("Overdue_Count", 0)))
+            else:
+                st.metric("✨ On Time", "All caught up!")
+    except Exception as exc:
+        logger.error("Failed to load chore stats: %s", exc)
+
+    tab1, tab2, tab3, tab4 = st.tabs(["🏆 Leaderboard", "📋 My Pending Chores", "✅ Completed (30d)", "➕ Assign to Roommate"])
 
     with tab1:
         try:
@@ -171,6 +308,19 @@ def main():
             st.error(f"Failed to load your chores: {exc}")
             logger.error("My chores load error for tenant %s: %s", tenant_id, exc)
 
+    with tab3:
+        try:
+            completed_df = load_my_completed_chores(tenant_id)
+            if completed_df.empty:
+                st.info("No completed chores in the last 30 days.")
+            else:
+                st.dataframe(completed_df, use_container_width=True, hide_index=True)
+        except Exception as exc:
+            st.error(f"Failed to load completed chores: {exc}")
+            logger.error("Completed chores load error for tenant %s: %s", tenant_id, exc)
 
-if __name__ == "__main__":
+    with tab4:
+        render_assign_chore_form(tenant_id)
+
+
     main()

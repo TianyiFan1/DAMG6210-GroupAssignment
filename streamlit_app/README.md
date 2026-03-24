@@ -12,10 +12,13 @@ streamlit_app/
 │   └── secrets.toml             # ⚠️ GITIGNORED - Your actual DB credentials
 ├── pages/
 │   ├── __init__.py
-│   ├── 1_💸_Financials.py       # Expense tracking & payments (CRUD)
-│   ├── 2_🧹_Chores.py           # Coming Soon
-│   ├── 3_🗳️_House_Voting.py     # Coming Soon
-│   └── 4_📈_Analytics.py        # Coming Soon
+│   ├── 1_💸_Financials.py       # Expense tracking, splits, payments, and receipt AI
+│   ├── 2_🧹_Chores.py           # Chore leaderboard and completion flow
+│   ├── 3_🗳️_House_Voting.py     # Proposal creation and voting
+│   ├── 4_📈_Analytics.py        # Utility analytics and trend views
+│   ├── 5_🏠_Landlord_Portal.py  # Property, lease, and utility bill management
+│   ├── 6_👥_House_Hub.py        # Lease details, guests, subleases, chore setup
+│   └── 7_📦_Inventory.py        # Shared/personal inventory operations
 ├── utils/
 │   ├── __init__.py
 │   └── db.py                    # Database layer (connection, queries, transactions)

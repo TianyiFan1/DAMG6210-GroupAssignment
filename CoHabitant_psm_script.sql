@@ -14,7 +14,9 @@ SELECT
     p.First_Name + ' ' + p.Last_Name AS Full_Name,
     t.Current_Net_Balance,
     ISNULL(SUM(es.Owed_Amount), 0) AS Total_Pending_Debts,
-    (SELECT ISNULL(SUM(Amount), 0) FROM dbo.PAYMENT WHERE Payer_Tenant_ID = t.Tenant_ID) AS Lifetime_Paid
+    (SELECT ISNULL(SUM(Amount), 0) FROM dbo.PAYMENT WHERE Payer_Tenant_ID = t.Tenant_ID) 
+    + ISNULL((SELECT SUM(Total_Amount) FROM dbo.EXPENSE WHERE Paid_By_Tenant_ID = t.Tenant_ID), 0)
+    AS Lifetime_Paid
 FROM dbo.TENANT t
 JOIN dbo.PERSON p ON t.Tenant_ID = p.Person_ID
 LEFT JOIN dbo.EXPENSE_SHARE es ON t.Tenant_ID = es.Owed_By_Tenant_ID AND es.Status = 'Pending'
@@ -83,13 +85,37 @@ CREATE OR ALTER FUNCTION dbo.fn_GetPendingVoteCount (@Proposal_ID INT)
 RETURNS INT
 AS
 BEGIN
-    DECLARE @TotalTenants INT;
+        DECLARE @ProposalPropertyID INT;
+        DECLARE @TotalEligibleTenants INT;
     DECLARE @VotesCast INT;
+
+        SELECT TOP 1
+                @ProposalPropertyID = la.Property_ID
+        FROM dbo.PROPOSAL p
+        INNER JOIN dbo.LEASE_AGREEMENT la ON la.Tenant_ID = p.Proposed_By_Tenant_ID
+        WHERE p.Proposal_ID = @Proposal_ID
+            AND CAST(GETDATE() AS DATE) BETWEEN la.Start_Date AND la.End_Date
+        ORDER BY la.End_Date DESC, la.Lease_ID DESC;
+
+        IF @ProposalPropertyID IS NULL
+                RETURN 0;
     
-    SELECT @TotalTenants = COUNT(*) FROM dbo.TENANT;
-    SELECT @VotesCast = COUNT(*) FROM dbo.VOTE WHERE Proposal_ID = @Proposal_ID;
+        SELECT @TotalEligibleTenants = COUNT(DISTINCT la.Tenant_ID)
+        FROM dbo.LEASE_AGREEMENT la
+        WHERE la.Property_ID = @ProposalPropertyID
+            AND CAST(GETDATE() AS DATE) BETWEEN la.Start_Date AND la.End_Date;
+
+        SELECT @VotesCast = COUNT(DISTINCT v.Tenant_ID)
+        FROM dbo.VOTE v
+        INNER JOIN dbo.LEASE_AGREEMENT la ON la.Tenant_ID = v.Tenant_ID
+        WHERE v.Proposal_ID = @Proposal_ID
+            AND la.Property_ID = @ProposalPropertyID
+            AND CAST(GETDATE() AS DATE) BETWEEN la.Start_Date AND la.End_Date;
+
+        IF @TotalEligibleTenants < @VotesCast
+                SET @VotesCast = @TotalEligibleTenants;
     
-    RETURN (@TotalTenants - @VotesCast);
+        RETURN (@TotalEligibleTenants - @VotesCast);
 END;
 GO
 
@@ -157,18 +183,26 @@ CREATE OR ALTER PROCEDURE dbo.usp_ProcessTenantPayment
     @PayerTenantID INT,
     @Amount DECIMAL(10,2),
     @Note VARCHAR(255),
-    @NewBalance DECIMAL(10,2) OUTPUT -- OUTPUT 2 (Added per Copilot)
+    @NewBalance DECIMAL(10,2) OUTPUT,
+    @PayeeTenantID INT = NULL  -- Optional: defaults to payer for self-payments
 AS
 BEGIN
     SET XACT_ABORT ON;
     BEGIN TRY
         BEGIN TRAN;
+
+        IF @Amount IS NULL OR @Amount <= 0
+            THROW 51003, 'Payment amount must be greater than zero.', 1;
         
-        INSERT INTO dbo.PAYMENT (Payer_Tenant_ID, Amount, Payment_Date, Note)
-        VALUES (@PayerTenantID, @Amount, CAST(GETDATE() AS DATE), @Note);
+        -- If payee not specified, default to payer (self-payment tracking)
+        IF @PayeeTenantID IS NULL
+            SET @PayeeTenantID = @PayerTenantID;
+        
+        INSERT INTO dbo.PAYMENT (Payer_Tenant_ID, Payee_Tenant_ID, Amount, Payment_Date, Note, Payment_Type)
+        VALUES (@PayerTenantID, @PayeeTenantID, @Amount, CAST(GETDATE() AS DATE), @Note, 'Payment');
         
         UPDATE dbo.TENANT
-        SET Current_Net_Balance = Current_Net_Balance + @Amount
+        SET Current_Net_Balance = ISNULL(Current_Net_Balance, 0) + @Amount
         WHERE Tenant_ID = @PayerTenantID;
         
         -- Return the new balance to the frontend
@@ -195,6 +229,31 @@ BEGIN
     SET XACT_ABORT ON; -- Added per Copilot for consistency
     BEGIN TRY
         BEGIN TRAN;
+
+        DECLARE @ProposalPropertyID INT;
+        DECLARE @VoterPropertyID INT;
+
+        SELECT TOP 1
+            @ProposalPropertyID = la.Property_ID
+        FROM dbo.PROPOSAL p
+        INNER JOIN dbo.LEASE_AGREEMENT la ON la.Tenant_ID = p.Proposed_By_Tenant_ID
+        WHERE p.Proposal_ID = @ProposalID
+          AND p.Status = 'Active'
+          AND CAST(GETDATE() AS DATE) BETWEEN la.Start_Date AND la.End_Date
+        ORDER BY la.End_Date DESC, la.Lease_ID DESC;
+
+        IF @ProposalPropertyID IS NULL
+            THROW 51001, 'Proposal is not active or proposer is not on an active lease.', 1;
+
+        SELECT TOP 1
+            @VoterPropertyID = la.Property_ID
+        FROM dbo.LEASE_AGREEMENT la
+        WHERE la.Tenant_ID = @TenantID
+          AND CAST(GETDATE() AS DATE) BETWEEN la.Start_Date AND la.End_Date
+        ORDER BY la.End_Date DESC, la.Lease_ID DESC;
+
+        IF @VoterPropertyID IS NULL OR @VoterPropertyID <> @ProposalPropertyID
+            THROW 51002, 'Tenant is not eligible to vote on this proposal.', 1;
         
         -- The UNIQUE constraint (added below) handles duplicate prevention now
         INSERT INTO dbo.VOTE (Proposal_ID, Tenant_ID, Approval_Status, Vote_Timestamp)

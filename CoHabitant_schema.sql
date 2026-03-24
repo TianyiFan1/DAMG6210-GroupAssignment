@@ -97,7 +97,8 @@ CREATE TABLE dbo.SUB_LEASE (
     End_Date DATE NOT NULL,
     Pro_Rated_Cost DECIMAL(10,2),
     CONSTRAINT FK_SubLease_Tenant FOREIGN KEY (Tenant_ID) REFERENCES dbo.TENANT(Tenant_ID),
-    CONSTRAINT CHK_SubLease_Dates CHECK (End_Date > Start_Date)
+    CONSTRAINT CHK_SubLease_Dates CHECK (End_Date > Start_Date),
+    CONSTRAINT CHK_SubLease_Cost CHECK (Pro_Rated_Cost IS NULL OR Pro_Rated_Cost >= 0)
 );
 
 CREATE TABLE dbo.GUEST (
@@ -163,10 +164,14 @@ CREATE TABLE dbo.EXPENSE_SHARE (
 CREATE TABLE dbo.PAYMENT (
     Payment_ID INT IDENTITY(1,1) PRIMARY KEY,
     Payer_Tenant_ID INT NOT NULL,
+    Payee_Tenant_ID INT NOT NULL,
     Amount DECIMAL(10,2) NOT NULL,
     Payment_Date DATE NOT NULL,
     Note VARCHAR(255),
-    CONSTRAINT FK_Payment_Tenant FOREIGN KEY (Payer_Tenant_ID) REFERENCES dbo.TENANT(Tenant_ID)
+    Payment_Type VARCHAR(50) DEFAULT 'Settlement',
+    CONSTRAINT FK_Payment_Payer FOREIGN KEY (Payer_Tenant_ID) REFERENCES dbo.TENANT(Tenant_ID),
+    CONSTRAINT FK_Payment_Payee FOREIGN KEY (Payee_Tenant_ID) REFERENCES dbo.TENANT(Tenant_ID),
+    CONSTRAINT CHK_Payment_Amount CHECK (Amount > 0)
 );
 
 -- [E. Chores & Governance]

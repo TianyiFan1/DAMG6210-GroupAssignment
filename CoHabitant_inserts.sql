@@ -207,17 +207,17 @@ GO
 
 -- 13. PAYMENT
 SET IDENTITY_INSERT dbo.PAYMENT ON;
-INSERT INTO dbo.PAYMENT (Payment_ID, Payer_Tenant_ID, Amount, Payment_Date, Note) VALUES
-(1, 12, 60.00, '2026-03-02', 'For March Electricity'),
-(2, 11, 22.75, '2026-03-06', 'Groceries share'),
-(3, 14, 40.00, '2026-03-11', 'Internet bill'),
-(4, 15, 100.00, '2026-03-13', 'Deep cleaning service'),
-(5, 16, 15.00, '2026-03-16', 'Paper towels and soap'),
-(6, 17, 75.00, '2026-03-19', 'Gas bill'),
-(7, 18, 30.00, '2026-03-21', 'Water bill'),
-(8, 19, 45.00, '2026-03-23', 'Couch repair share'),
-(9, 20, 12.50, '2026-03-26', 'Netflix/Hulu split'),
-(10, 11, 55.00, '2026-03-29', 'Sink repair share');
+INSERT INTO dbo.PAYMENT (Payment_ID, Payer_Tenant_ID, Payee_Tenant_ID, Amount, Payment_Date, Note, Payment_Type) VALUES
+(1, 12, 11, 60.00, '2026-03-02', 'For March Electricity', 'Settlement'),
+(2, 11, 12, 22.75, '2026-03-06', 'Groceries share', 'Settlement'),
+(3, 14, 13, 40.00, '2026-03-11', 'Internet bill', 'Settlement'),
+(4, 15, 14, 100.00, '2026-03-13', 'Deep cleaning service', 'Settlement'),
+(5, 16, 15, 15.00, '2026-03-16', 'Paper towels and soap', 'Settlement'),
+(6, 17, 16, 75.00, '2026-03-19', 'Gas bill', 'Settlement'),
+(7, 18, 17, 30.00, '2026-03-21', 'Water bill', 'Settlement'),
+(8, 19, 18, 45.00, '2026-03-23', 'Couch repair share', 'Settlement'),
+(9, 20, 19, 12.50, '2026-03-26', 'Netflix/Hulu split', 'Settlement'),
+(10, 11, 20, 55.00, '2026-03-29', 'Sink repair share', 'Settlement');
 SET IDENTITY_INSERT dbo.PAYMENT OFF;
 GO
 

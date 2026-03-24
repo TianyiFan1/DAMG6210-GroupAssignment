@@ -3,7 +3,13 @@ GO
 
 IF NOT EXISTS (SELECT * FROM sys.symmetric_keys WHERE name = '##MS_DatabaseMasterKey##')
 BEGIN
-    CREATE MASTER KEY ENCRYPTION BY PASSWORD = 'CoHabitant_StrongPassword123!';
+    DECLARE @MasterKeyPassword NVARCHAR(4000) = CAST(SESSION_CONTEXT(N'DB_MASTER_KEY_PASSWORD') AS NVARCHAR(4000));
+    IF @MasterKeyPassword IS NULL OR LEN(@MasterKeyPassword) < 16
+        THROW 50010, 'Missing/weak DB master key password. Set SESSION_CONTEXT(''DB_MASTER_KEY_PASSWORD'') before running this script.', 1;
+
+    DECLARE @CreateMasterKeySql NVARCHAR(MAX) =
+        N'CREATE MASTER KEY ENCRYPTION BY PASSWORD = ''' + REPLACE(@MasterKeyPassword, '''', '''''') + N''';';
+    EXEC sp_executesql @CreateMasterKeySql;
 END
 GO
 

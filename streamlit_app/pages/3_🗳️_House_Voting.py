@@ -6,6 +6,7 @@ Create proposals and cast votes on active house rules.
 import logging
 import pandas as pd
 import streamlit as st
+import plotly.graph_objects as go
 
 from utils.db import execute_transaction, run_query, get_roommate_ids
 
@@ -26,7 +27,7 @@ def check_authenticated():
 
 
 def load_proposals(tenant_id: int) -> pd.DataFrame:
-    """Load all proposals with proposer names, newest first."""
+    """Load all proposals with proposer names, vote counts, newest first."""
     roommate_ids = get_roommate_ids(tenant_id)
     if not roommate_ids:
         return pd.DataFrame()
@@ -39,14 +40,38 @@ def load_proposals(tenant_id: int) -> pd.DataFrame:
         per.First_Name + ' ' + per.Last_Name AS Proposed_By,
         p.Description,
         p.Cost_Threshold,
-        p.Status
+        p.Status,
+        ISNULL(dbo.fn_GetPendingVoteCount(p.Proposal_ID), 0) AS Pending_Votes,
+        (
+            SELECT COUNT(DISTINCT la.Tenant_ID)
+            FROM dbo.LEASE_AGREEMENT la
+            WHERE la.Property_ID = (
+                SELECT TOP 1 la2.Property_ID
+                FROM dbo.LEASE_AGREEMENT la2
+                WHERE la2.Tenant_ID = p.Proposed_By_Tenant_ID
+                  AND CAST(GETDATE() AS DATE) BETWEEN la2.Start_Date AND la2.End_Date
+                ORDER BY la2.End_Date DESC, la2.Lease_ID DESC
+            )
+            AND CAST(GETDATE() AS DATE) BETWEEN la.Start_Date AND la.End_Date
+        ) AS Total_Eligible_Voters
     FROM dbo.PROPOSAL p
     INNER JOIN dbo.TENANT t ON p.Proposed_By_Tenant_ID = t.Tenant_ID
     INNER JOIN dbo.PERSON per ON t.Tenant_ID = per.Person_ID
     WHERE p.Proposed_By_Tenant_ID IN ({placeholders})
     ORDER BY p.Proposal_ID DESC
     """
-    return run_query(sql, roommate_ids)
+    df = run_query(sql, roommate_ids)
+    
+    # Calculate votes cast from pending votes
+    if not df.empty:
+        df['Votes_Cast'] = df['Total_Eligible_Voters'] - df['Pending_Votes']
+        df['Vote_Progress'] = df.apply(
+            lambda row: f"{int(row['Votes_Cast'])}/{int(row['Total_Eligible_Voters'])}" 
+            if row['Total_Eligible_Voters'] > 0 else "0/0",
+            axis=1
+        )
+    
+    return df
 
 
 def create_proposal_form(tenant_id: int):
@@ -124,24 +149,9 @@ def cast_vote_form(tenant_id: int, active_df: pd.DataFrame):
             try:
                 execute_transaction(vote_sql, [proposal_id, tenant_id, is_approved])
 
-                status_sql = """
-                SELECT p.Status
-                FROM dbo.PROPOSAL p
-                WHERE p.Proposal_ID = ?
-                  AND p.Proposed_By_Tenant_ID IN (
-                      SELECT la.Tenant_ID
-                      FROM dbo.LEASE_AGREEMENT la
-                      WHERE la.Property_ID = (
-                          SELECT TOP 1 la2.Property_ID
-                          FROM dbo.LEASE_AGREEMENT la2
-                          WHERE la2.Tenant_ID = ?
-                            AND CAST(GETDATE() AS DATE) BETWEEN la2.Start_Date AND la2.End_Date
-                          ORDER BY la2.End_Date DESC, la2.Lease_ID DESC
-                      )
-                      AND CAST(GETDATE() AS DATE) BETWEEN la.Start_Date AND la.End_Date
-                  )
-                """
-                status_df = run_query(status_sql, [proposal_id, tenant_id])
+                # Simple direct query to get the updated status
+                status_sql = "SELECT p.Status FROM dbo.PROPOSAL p WHERE p.Proposal_ID = ?"
+                status_df = run_query(status_sql, [proposal_id])
                 final_status = (
                     status_df.iloc[0]["Status"] if not status_df.empty else "Unknown"
                 )
@@ -163,6 +173,61 @@ def cast_vote_form(tenant_id: int, active_df: pd.DataFrame):
                     proposal_id,
                     exc
                 )
+
+
+def load_vote_breakdown(proposal_id: int) -> dict:
+    """Load yes/no vote counts for a proposal."""
+    sql = """
+    SELECT
+        SUM(CASE WHEN Approval_Status = 1 THEN 1 ELSE 0 END) AS Yes_Votes,
+        SUM(CASE WHEN Approval_Status = 0 THEN 1 ELSE 0 END) AS No_Votes
+    FROM dbo.VOTE
+    WHERE Proposal_ID = ?
+    """
+    df = run_query(sql, [proposal_id])
+    if df.empty:
+        return {"Yes_Votes": 0, "No_Votes": 0}
+    return df.iloc[0].to_dict()
+
+
+def render_vote_breakdown(proposals_df: pd.DataFrame):
+    """Render vote breakdown pie charts for completed proposals."""
+    st.subheader("🗳️ Vote Breakdown")
+    
+    # Filter for completed proposals (Approved/Rejected)
+    completed_df = proposals_df[proposals_df["Status"].isin(["Approved", "Rejected"])]
+    
+    if completed_df.empty:
+        st.info("No completed proposals yet.")
+        return
+    
+    # Show pie charts for each completed proposal
+    cols = st.columns(min(2, len(completed_df)))
+    for idx, (_, proposal) in enumerate(completed_df.iterrows()):
+        with cols[idx % 2]:
+            breakdown = load_vote_breakdown(int(proposal["Proposal_ID"]))
+            yes_votes = breakdown.get("Yes_Votes", 0) or 0
+            no_votes = breakdown.get("No_Votes", 0) or 0
+            
+            if yes_votes + no_votes == 0:
+                st.write(f"**#{int(proposal['Proposal_ID'])}** - No votes cast")
+                continue
+            
+            fig = go.Figure(
+                data=[go.Pie(
+                    labels=["Yes ✅", "No ❌"],
+                    values=[yes_votes, no_votes],
+                    marker=dict(colors=["#31a354", "#d62728"]),
+                    textinfo="label+value+percent"
+                )]
+            )
+            fig.update_layout(
+                title=f"#{int(proposal['Proposal_ID'])}: {proposal['Status']}",
+                height=300,
+                showlegend=True
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
 
 
 def main():
@@ -190,9 +255,16 @@ def main():
         st.metric("Rejected", int((proposals_df["Status"] == "Rejected").sum()) if not proposals_df.empty else 0)
 
     st.markdown("### Proposal History")
-    st.dataframe(proposals_df, use_container_width=True, hide_index=True)
+    
+    # Display proposals with selected columns only
+    if not proposals_df.empty:
+        display_df = proposals_df[['Proposal_ID', 'Proposed_By', 'Description', 'Status', 'Vote_Progress']].copy()
+        display_df.columns = ['ID', 'Proposed By', 'Description', 'Status', 'Votes (Cast/Total)']
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
+    else:
+        st.info("No proposals found.")
 
-    tab1, tab2 = st.tabs(["➕ New Proposal", "🗳️ Vote"])
+    tab1, tab2, tab3 = st.tabs(["➕ New Proposal", "🗳️ Vote", "📊 Results"])
 
     with tab1:
         create_proposal_form(tenant_id)
@@ -200,6 +272,13 @@ def main():
     with tab2:
         active_df = proposals_df[proposals_df["Status"] == "Active"].copy() if not proposals_df.empty else pd.DataFrame()
         cast_vote_form(tenant_id, active_df)
+
+    with tab3:
+        try:
+            render_vote_breakdown(proposals_df)
+        except Exception as exc:
+            st.error(f"Failed to load vote breakdown: {exc}")
+            logger.error("Vote breakdown load error: %s", exc)
 
 
 if __name__ == "__main__":
