@@ -81,7 +81,7 @@ jobs:
       - name: Create test secrets template
         run: |
           mkdir -p .streamlit
-          cp .streamlit/secrets.toml.template .streamlit/secrets.toml.template
+          cp .streamlit/secrets.toml.template .streamlit/secrets.toml
           # Ensure the template file exists for security tests
 
       # ── Run test suite ──
