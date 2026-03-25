@@ -82,6 +82,8 @@ def _build_connection_string(cfg: Dict[str, Any]) -> str:
             f"SERVER={server};"
             f"DATABASE={database};"
             "Trusted_Connection=yes;"
+            "Encrypt=yes;"
+            "TrustServerCertificate=yes;"
         )
 
     username = cfg.get("username")
