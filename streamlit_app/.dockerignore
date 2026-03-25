@@ -1,0 +1,21 @@
+# CoHabitant Docker build exclusions
+.git
+.github
+.hypothesis
+.pytest_cache
+__pycache__
+*.pyc
+*.pyo
+venv/
+.venv/
+env/
+.env
+.env.local
+tests/
+*.md
+*.svg
+*.pbix
+*.pdf
+.streamlit/secrets.toml
+.DS_Store
+Thumbs.db

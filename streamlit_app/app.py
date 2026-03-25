@@ -1,8 +1,14 @@
-"""CoHabitant app shell with cold-start authentication and RBAC."""
+"""CoHabitant app shell with cold-start authentication and RBAC.
+
+Phase 3 Upgrade: Uses AppState for centralized session management and
+auth_gate for consistent access control.
+"""
 
 import logging
+import time
 import streamlit as st
 from utils.db import execute_transaction, run_query, get_roommate_ids
+from utils.state import AppState
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -14,18 +20,6 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-def initialize_session_state():
-    """Initialize auth and compatibility session values."""
-    if "logged_in_user_id" not in st.session_state:
-        st.session_state.logged_in_user_id = None
-    if "logged_in_role" not in st.session_state:
-        st.session_state.logged_in_role = None
-    if "logged_in_name" not in st.session_state:
-        st.session_state.logged_in_name = None
-    if "logged_in_tenant_id" not in st.session_state:
-        st.session_state.logged_in_tenant_id = None
-    if "logged_in_tenant_name" not in st.session_state:
-        st.session_state.logged_in_tenant_name = None
 
 def hide_sidebar_for_prelogin():
     """Hide sidebar and collapsed control when user is not authenticated."""
@@ -39,37 +33,35 @@ def hide_sidebar_for_prelogin():
         unsafe_allow_html=True,
     )
 
-def clear_login_state():
-    """Clear session auth data and rerun."""
-    for key in ["logged_in_user_id", "logged_in_role", "logged_in_name", "logged_in_tenant_id", "logged_in_tenant_name"]:
-        st.session_state[key] = None
-    st.rerun()
 
 def load_people_for_login():
     """Load all registered users for login selection."""
     sql = """
     SELECT Person_ID, First_Name, Last_Name, Email, Phone_Number
     FROM dbo.PERSON
+    WHERE Is_Active = 1
     ORDER BY First_Name ASC, Last_Name ASC
     """
     return run_query(sql)
+
 
 def get_user_role(person_id: int):
     """Return Tenant, Landlord, or None for a person ID."""
     sql = """
     SELECT
         CASE
-            WHEN EXISTS (SELECT 1 FROM dbo.LANDLORD l WHERE l.Landlord_ID = p.Person_ID) THEN 'Landlord'
-            WHEN EXISTS (SELECT 1 FROM dbo.TENANT t WHERE t.Tenant_ID = p.Person_ID) THEN 'Tenant'
+            WHEN EXISTS (SELECT 1 FROM dbo.LANDLORD l WHERE l.Landlord_ID = p.Person_ID AND l.Is_Active = 1) THEN 'Landlord'
+            WHEN EXISTS (SELECT 1 FROM dbo.TENANT t WHERE t.Tenant_ID = p.Person_ID AND t.Is_Active = 1) THEN 'Tenant'
             ELSE NULL
         END AS UserRole
     FROM dbo.PERSON p
-    WHERE p.Person_ID = ?
+    WHERE p.Person_ID = ? AND p.Is_Active = 1
     """
     role_df = run_query(sql, [person_id])
     if role_df.empty:
         return None
     return role_df.iloc[0]["UserRole"]
+
 
 def render_register_tab():
     """Render registration form and persist new users."""
@@ -92,36 +84,33 @@ def render_register_tab():
                 return
 
             try:
-                # 1. Insert into PERSON
                 insert_person_sql = """
                 INSERT INTO dbo.PERSON (First_Name, Last_Name, Email, Phone_Number)
                 VALUES (?, ?, ?, ?)
                 """
                 execute_transaction(insert_person_sql, [first_name.strip(), last_name.strip(), email.strip(), phone.strip() or None])
 
-                # 2. Get the new ID
                 person_df = run_query("SELECT TOP 1 Person_ID FROM dbo.PERSON WHERE Email = ? ORDER BY Person_ID DESC", [email.strip()])
                 if person_df.empty:
                     st.error("Registration failed: unable to resolve new user ID.")
                     return
-                
+
                 person_id = int(person_df.iloc[0]["Person_ID"])
 
-                # 3. Insert into Role Table
                 if role == "Landlord":
                     execute_transaction("INSERT INTO dbo.LANDLORD (Landlord_ID) VALUES (?)", [person_id])
                 else:
                     execute_transaction("INSERT INTO dbo.TENANT (Tenant_ID) VALUES (?)", [person_id])
-                
+
                 st.success(f"✅ Registration successful! Please switch to the Login tab to sign in as {first_name}.")
-                import time
                 time.sleep(2)
                 st.rerun()
             except Exception as exc:
                 st.error(f"Registration failed: {exc}")
                 logger.error("Registration error: %s", exc)
 
-def render_login_tab():
+
+def render_login_tab(state: AppState):
     """Render login form and set authenticated session values."""
     st.subheader("Sign in")
     st.caption("Choose your account and continue to your role-based dashboard.")
@@ -149,25 +138,15 @@ def render_login_tab():
                     st.error("Selected user does not have a valid role profile.")
                     return
 
-                # Get the name directly from the selectbox string
                 full_name = selected_user.split(" (")[0]
-
-                # Set global session state
-                st.session_state.logged_in_user_id = person_id
-                st.session_state.logged_in_role = role
-                st.session_state.logged_in_name = full_name
-
-                # Set tenant compatibility state
-                if role == "Tenant":
-                    st.session_state.logged_in_tenant_id = person_id
-                    st.session_state.logged_in_tenant_name = full_name
-                
+                state.login(person_id, role, full_name)
                 st.rerun()
 
             except Exception as exc:
                 st.error(f"Login failed: {exc}")
 
-def render_prelogin_view():
+
+def render_prelogin_view(state: AppState):
     """Render centered login/register tabs while sidebar is hidden."""
     hide_sidebar_for_prelogin()
     left, center, right = st.columns([1, 2, 1])
@@ -177,71 +156,61 @@ def render_prelogin_view():
         st.info("Tip: Use Tab/Shift+Tab to navigate inputs and Enter to submit forms.")
         login_tab, register_tab = st.tabs(["Login", "Register"])
         with login_tab:
-            render_login_tab()
+            render_login_tab(state)
         with register_tab:
             render_register_tab()
 
-def render_postlogin_sidebar():
+
+def render_postlogin_sidebar(state: AppState):
     """Render authenticated sidebar controls."""
     st.sidebar.title("🏠 CoHabitant")
-    st.sidebar.markdown(f"👤 **{st.session_state.logged_in_name}**")
-    st.sidebar.markdown(f"*{st.session_state.logged_in_role}*")
+    st.sidebar.markdown(f"👤 **{state.name}**")
+    st.sidebar.markdown(f"*{state.role}*")
     st.sidebar.markdown("---")
     if st.sidebar.button("🔐 Log Out"):
-        clear_login_state()
+        state.clear()
 
-def render_tenant_onboarding():
+
+def render_tenant_onboarding(state: AppState):
     """Render cold start onboarding form for tenants without an active lease."""
     st.info("🏠 **Welcome to CoHabitant!** You don't have an active lease yet. Let's get you set up.")
-    
+
     with st.form("tenant_onboarding_form", clear_on_submit=True):
         st.subheader("Join Your House")
-        
+
         col1, col2 = st.columns(2)
         with col1:
             property_code = st.text_input("Property Invite Code", help="Provided by your landlord (corresponds to the Property ID)")
         with col2:
             monthly_rent = st.number_input("Monthly Rent ($)", min_value=0.0, value=0.0, step=100.0, format="%.2f")
-        
+
         col3, col4 = st.columns(2)
         with col3:
             start_date = st.date_input("Lease Start Date")
         with col4:
             end_date = st.date_input("Lease End Date")
-        
+
         submitted = st.form_submit_button("Join House")
-        
+
         if submitted:
-            # Validation
             if not property_code.strip():
                 st.error("Property Invite Code is required.")
                 return
-            
+
             if end_date <= start_date:
                 st.error("End Date must be later than Start Date.")
                 return
-            
+
             try:
-                # Convert property code to property ID
                 property_id = int(property_code)
-                tenant_id = st.session_state.logged_in_user_id
-                
-                # UPDATED: Matches your actual schema columns
+                tenant_id = state.user_id
+
                 insert_sql = """
-                INSERT INTO dbo.LEASE_AGREEMENT (
-                    Property_ID,
-                    Tenant_ID,
-                    Start_Date,
-                    End_Date,
-                    Move_In_Date
-                )
+                INSERT INTO dbo.LEASE_AGREEMENT (Property_ID, Tenant_ID, Start_Date, End_Date, Move_In_Date)
                 VALUES (?, ?, ?, ?, ?)
                 """
-                execute_transaction(
-                    insert_sql,
-                    [property_id, tenant_id, start_date, end_date, start_date]
-                )
-                st.success(f"✅ Lease created successfully! Redirecting...")
+                execute_transaction(insert_sql, [property_id, tenant_id, start_date, end_date, start_date])
+                st.success("✅ Lease created successfully! Redirecting...")
                 logger.info("Lease created for tenant %s on property %s", tenant_id, property_id)
                 st.rerun()
             except ValueError:
@@ -251,50 +220,46 @@ def render_tenant_onboarding():
                 logger.error("Lease creation failed: %s", exc)
 
 
-def render_postlogin_home():
+def render_postlogin_home(state: AppState):
     """Render role-aware post-login landing view."""
     st.title("CoHabitant Dashboard")
-    st.write(f"Welcome, **{st.session_state.logged_in_name}**!")
+    st.write(f"Welcome, **{state.name}**!")
 
-    role = st.session_state.logged_in_role
-    if role == "Landlord":
+    if state.is_landlord:
         st.success("Landlord access granted. Navigate the sidebar to manage your properties and leases.")
         try:
-            tenants_cnt = run_query("SELECT COUNT(*) AS Cnt FROM dbo.TENANT")
-            props_cnt = run_query("SELECT COUNT(*) AS Cnt FROM dbo.PROPERTY")
+            tenants_cnt = run_query("SELECT COUNT(*) AS Cnt FROM dbo.TENANT WHERE Is_Active = 1")
+            props_cnt = run_query("SELECT COUNT(*) AS Cnt FROM dbo.PROPERTY WHERE Is_Active = 1")
             col1, col2 = st.columns(2)
             with col1:
                 st.metric("Total Registered Tenants", int(tenants_cnt.iloc[0]["Cnt"]) if not tenants_cnt.empty else 0)
             with col2:
                 st.metric("Total Properties", int(props_cnt.iloc[0]["Cnt"]) if not props_cnt.empty else 0)
-        except Exception as exc:
+        except Exception:
             st.warning("Could not load landlord metrics.")
 
-    elif role == "Tenant":
-        tenant_id = st.session_state.logged_in_user_id
-        
-        # Cold start check: Do tenants have an active lease?
+    elif state.is_tenant:
+        tenant_id = state.user_id
+
         try:
             lease_count_df = run_query(
                 """
                 SELECT COUNT(*) AS Cnt
                 FROM dbo.LEASE_AGREEMENT
-                WHERE Tenant_ID = ?
+                WHERE Tenant_ID = ? AND Is_Active = 1
                   AND CAST(GETDATE() AS DATE) BETWEEN Start_Date AND End_Date
                 """,
                 [tenant_id],
             )
             lease_count = int(lease_count_df.iloc[0]["Cnt"]) if not lease_count_df.empty else 0
-        except Exception as exc:
+        except Exception:
             st.warning("Could not check lease status.")
             lease_count = 0
-        
-        # If no lease, show onboarding
+
         if lease_count == 0:
-            render_tenant_onboarding()
+            render_tenant_onboarding(state)
             return
-        
-        # Otherwise, show normal dashboard
+
         st.success("Tenant access granted. Use the sidebar to manage your house.")
         try:
             roommate_ids = get_roommate_ids(tenant_id)
@@ -304,21 +269,11 @@ def render_postlogin_home():
             placeholders = ", ".join("?" for _ in roommate_ids)
             bal_df = run_query("SELECT Current_Net_Balance FROM dbo.TENANT WHERE Tenant_ID = ?", [tenant_id])
             chores_df = run_query(
-                f"""
-                SELECT COUNT(*) AS Cnt
-                FROM dbo.CHORE_ASSIGNMENT
-                WHERE Assigned_Tenant_ID IN ({placeholders})
-                  AND Status = 'Pending'
-                """,
+                f"SELECT COUNT(*) AS Cnt FROM dbo.CHORE_ASSIGNMENT WHERE Assigned_Tenant_ID IN ({placeholders}) AND Status = 'Pending' AND Is_Active = 1",
                 roommate_ids,
             )
             props_df = run_query(
-                f"""
-                SELECT COUNT(*) AS Cnt
-                FROM dbo.PROPOSAL
-                WHERE Status = 'Active'
-                  AND Proposed_By_Tenant_ID IN ({placeholders})
-                """,
+                f"SELECT COUNT(*) AS Cnt FROM dbo.PROPOSAL WHERE Status = 'Active' AND Proposed_By_Tenant_ID IN ({placeholders}) AND Is_Active = 1",
                 roommate_ids,
             )
 
@@ -333,19 +288,21 @@ def render_postlogin_home():
                 st.metric("🧹 Pending Chores", pending_chores)
             with col3:
                 st.metric("🗳️ Active Proposals", active_props)
-        except Exception as exc:
+        except Exception:
             st.warning("Could not load tenant metrics.")
+
 
 def main():
     """App entrypoint."""
-    initialize_session_state()
+    state = AppState()
 
-    if st.session_state.logged_in_user_id is None:
-        render_prelogin_view()
+    if not state.is_authenticated:
+        render_prelogin_view(state)
         return
 
-    render_postlogin_sidebar()
-    render_postlogin_home()
+    render_postlogin_sidebar(state)
+    render_postlogin_home(state)
+
 
 if __name__ == "__main__":
     main()

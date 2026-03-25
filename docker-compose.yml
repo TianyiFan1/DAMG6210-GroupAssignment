@@ -1,0 +1,60 @@
+# ============================================================================
+# CoHabitant — Local Development Docker Compose
+# ============================================================================
+# Spins up the Streamlit app + a local SQL Server 2022 instance for
+# development and testing without needing a remote Azure SQL database.
+#
+# Usage:
+#   docker-compose up --build          # Start both services
+#   docker-compose up -d sqlserver     # Start only SQL Server (use local Streamlit)
+#   docker-compose down -v             # Tear down + remove volumes
+#
+# After SQL Server starts (~30s), run the schema scripts against it:
+#   sqlcmd -S localhost,1433 -U sa -P 'CoHabitant_Dev_2026!' -i CoHabitant_schema.sql
+#   sqlcmd -S localhost,1433 -U sa -P 'CoHabitant_Dev_2026!' -i CoHabitant_psm_script.sql
+#   sqlcmd -S localhost,1433 -U sa -P 'CoHabitant_Dev_2026!' -i CoHabitant_inserts.sql
+# ============================================================================
+
+services:
+
+  # ── SQL Server 2022 (Developer Edition — free for dev/test) ──
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: cohabitant-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "CoHabitant_Dev_2026!"
+      MSSQL_PID: "Developer"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+    healthcheck:
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "CoHabitant_Dev_2026!" -Q "SELECT 1" -C -N -l 5 || exit 1
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  # ── Streamlit App ──
+  streamlit:
+    build:
+      context: ./streamlit_app
+      dockerfile: Dockerfile
+    container_name: cohabitant-app
+    ports:
+      - "8501:8501"
+    environment:
+      - COHABITANT_ENV=development
+    volumes:
+      # Mount secrets for local dev (NOT committed to git)
+      - ./streamlit_app/.streamlit/secrets.toml:/app/.streamlit/secrets.toml:ro
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  sqlserver_data:
+    driver: local

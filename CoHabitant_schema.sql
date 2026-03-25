@@ -10,12 +10,27 @@ GO
 
 -- 2. DROP TABLES (Strict Reverse Dependency Order)
 
+-- DISABLE TEMPORAL VERSIONING before dropping (required by SQL Server)
+IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'EXPENSE' AND temporal_type = 2)
+    ALTER TABLE dbo.EXPENSE SET (SYSTEM_VERSIONING = OFF);
+IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'EXPENSE_SHARE' AND temporal_type = 2)
+    ALTER TABLE dbo.EXPENSE_SHARE SET (SYSTEM_VERSIONING = OFF);
+IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'PAYMENT' AND temporal_type = 2)
+    ALTER TABLE dbo.PAYMENT SET (SYSTEM_VERSIONING = OFF);
+
+-- DROP HISTORY TABLES (created by temporal versioning)
+IF OBJECT_ID('dbo.EXPENSE_History', 'U') IS NOT NULL DROP TABLE dbo.EXPENSE_History;
+IF OBJECT_ID('dbo.EXPENSE_SHARE_History', 'U') IS NOT NULL DROP TABLE dbo.EXPENSE_SHARE_History;
+IF OBJECT_ID('dbo.PAYMENT_History', 'U') IS NOT NULL DROP TABLE dbo.PAYMENT_History;
+
 -- SEVER CIRCULAR DEPENDENCIES FIRST: 
 IF OBJECT_ID('dbo.FK_Tenant_Lease', 'F') IS NOT NULL 
     ALTER TABLE dbo.TENANT DROP CONSTRAINT FK_Tenant_Lease;
 IF OBJECT_ID('dbo.FK_Lease_Tenant', 'F') IS NOT NULL 
     ALTER TABLE dbo.LEASE_AGREEMENT DROP CONSTRAINT FK_Lease_Tenant;
 
+IF OBJECT_ID('dbo.SYSTEM_ERROR_LOG', 'U') IS NOT NULL DROP TABLE dbo.SYSTEM_ERROR_LOG;
+IF OBJECT_ID('dbo.EXPENSE_AUDIT_LOG', 'U') IS NOT NULL DROP TABLE dbo.EXPENSE_AUDIT_LOG;
 IF OBJECT_ID('dbo.VOTE', 'U') IS NOT NULL DROP TABLE dbo.VOTE;
 IF OBJECT_ID('dbo.PROPOSAL', 'U') IS NOT NULL DROP TABLE dbo.PROPOSAL;
 IF OBJECT_ID('dbo.CHORE_ASSIGNMENT', 'U') IS NOT NULL DROP TABLE dbo.CHORE_ASSIGNMENT;
@@ -39,23 +54,61 @@ GO
 
 -- 3. CREATE TABLES
 
--- [A. User Management]
+/* =========================================================================
+   [INFRASTRUCTURE] System Error Log & Legacy Audit Log
+   ========================================================================= */
+
+-- Phase 2 Task 1: Centralized error log for stored procedure failures.
+-- All SP CATCH blocks INSERT into this table before re-throwing.
+CREATE TABLE dbo.SYSTEM_ERROR_LOG (
+    Error_Log_ID INT IDENTITY(1,1) PRIMARY KEY,
+    Error_Message NVARCHAR(4000) NOT NULL,
+    Error_Severity INT,
+    Error_State INT,
+    Error_Procedure NVARCHAR(128),
+    Error_Line INT,
+    Error_Timestamp DATETIME NOT NULL DEFAULT GETDATE(),
+    Tenant_ID INT NULL,
+    Additional_Context NVARCHAR(500) NULL
+);
+
+-- Legacy audit log (retained for backward compatibility; temporal tables now
+-- provide automatic point-in-time history for financial tables).
+CREATE TABLE dbo.EXPENSE_AUDIT_LOG (
+    Audit_ID INT IDENTITY(1,1) PRIMARY KEY,
+    Expense_ID INT NOT NULL,
+    Old_Amount DECIMAL(10,2),
+    New_Amount DECIMAL(10,2),
+    Action_Type VARCHAR(10),
+    Changed_By_User VARCHAR(100),
+    Change_Timestamp DATETIME DEFAULT GETDATE()
+);
+
+/* =========================================================================
+   [A. User Management]
+   ========================================================================= */
+
 CREATE TABLE dbo.PERSON (
     Person_ID INT IDENTITY(1,1) PRIMARY KEY,
     First_Name VARCHAR(50) NOT NULL,
     Last_Name VARCHAR(50) NOT NULL,
     Email VARCHAR(100) NOT NULL UNIQUE,
-    Phone_Number VARCHAR(20)
+    Phone_Number VARCHAR(20),
+    Is_Active BIT NOT NULL DEFAULT 1
 );
 
 CREATE TABLE dbo.LANDLORD (
     Landlord_ID INT PRIMARY KEY,
     Bank_Details VARCHAR(255),
     Tax_ID VARCHAR(50),
+    Is_Active BIT NOT NULL DEFAULT 1,
     CONSTRAINT FK_Landlord_Person FOREIGN KEY (Landlord_ID) REFERENCES dbo.PERSON(Person_ID)
 );
 
--- [B. Property & Occupancy]
+/* =========================================================================
+   [B. Property & Occupancy]
+   ========================================================================= */
+
 CREATE TABLE dbo.PROPERTY (
     Property_ID INT IDENTITY(1,1) PRIMARY KEY,
     Landlord_ID INT,
@@ -65,6 +118,7 @@ CREATE TABLE dbo.PROPERTY (
     Zip_Code VARCHAR(20) NOT NULL,
     Max_Occupancy INT,
     WiFi_Password VARCHAR(50),
+    Is_Active BIT NOT NULL DEFAULT 1,
     CONSTRAINT FK_Property_Landlord FOREIGN KEY (Landlord_ID) REFERENCES dbo.LANDLORD(Landlord_ID),
     CONSTRAINT CHK_Property_MaxOcc CHECK (Max_Occupancy > 0)
 );
@@ -74,6 +128,7 @@ CREATE TABLE dbo.TENANT (
     Current_Net_Balance DECIMAL(10,2) DEFAULT 0.00,
     Emergency_Contact VARCHAR(100),
     Tenant_Responsibility_Score INT DEFAULT 100,
+    Is_Active BIT NOT NULL DEFAULT 1,
     CONSTRAINT FK_Tenant_Person FOREIGN KEY (Tenant_ID) REFERENCES dbo.PERSON(Person_ID)
 );
 
@@ -85,6 +140,7 @@ CREATE TABLE dbo.LEASE_AGREEMENT (
     End_Date DATE NOT NULL,
     Move_In_Date DATE,
     Document_URL VARCHAR(255),
+    Is_Active BIT NOT NULL DEFAULT 1,
     CONSTRAINT FK_Lease_Property FOREIGN KEY (Property_ID) REFERENCES dbo.PROPERTY(Property_ID),
     CONSTRAINT FK_Lease_Tenant FOREIGN KEY (Tenant_ID) REFERENCES dbo.TENANT(Tenant_ID),
     CONSTRAINT CHK_Lease_Dates CHECK (End_Date > Start_Date)
@@ -96,6 +152,7 @@ CREATE TABLE dbo.SUB_LEASE (
     Start_Date DATE NOT NULL,
     End_Date DATE NOT NULL,
     Pro_Rated_Cost DECIMAL(10,2),
+    Is_Active BIT NOT NULL DEFAULT 1,
     CONSTRAINT FK_SubLease_Tenant FOREIGN KEY (Tenant_ID) REFERENCES dbo.TENANT(Tenant_ID),
     CONSTRAINT CHK_SubLease_Dates CHECK (End_Date > Start_Date),
     CONSTRAINT CHK_SubLease_Cost CHECK (Pro_Rated_Cost IS NULL OR Pro_Rated_Cost >= 0)
@@ -108,16 +165,21 @@ CREATE TABLE dbo.GUEST (
     Last_Name VARCHAR(50) NOT NULL,
     Arrival_Date DATE,
     Is_Overnight BIT DEFAULT 0,
+    Is_Active BIT NOT NULL DEFAULT 1,
     CONSTRAINT FK_Guest_Tenant FOREIGN KEY (Tenant_ID) REFERENCES dbo.TENANT(Tenant_ID)
 );
 
--- [C. Inventory System]
+/* =========================================================================
+   [C. Inventory System]
+   ========================================================================= */
+
 CREATE TABLE dbo.INVENTORY_ITEM (
     Item_ID INT IDENTITY(1,1) PRIMARY KEY,
     Item_Name VARCHAR(100) NOT NULL,
     Total_Quantity INT DEFAULT 0,
     Category VARCHAR(50),
     Storage_Location VARCHAR(100),
+    Is_Active BIT NOT NULL DEFAULT 1,
     CONSTRAINT CHK_Inventory_Qty CHECK (Total_Quantity >= 0)
 );
 
@@ -126,6 +188,7 @@ CREATE TABLE dbo.SHARED_ITEM (
     Property_ID INT NOT NULL,
     Low_Stock_Threshold INT DEFAULT 1,
     Auto_Replenish_Flag BIT DEFAULT 0,
+    Is_Active BIT NOT NULL DEFAULT 1,
     CONSTRAINT FK_SharedItem_Inv FOREIGN KEY (Item_ID) REFERENCES dbo.INVENTORY_ITEM(Item_ID),
     CONSTRAINT FK_SharedItem_Property FOREIGN KEY (Property_ID) REFERENCES dbo.PROPERTY(Property_ID)
 );
@@ -134,11 +197,20 @@ CREATE TABLE dbo.PERSONAL_ITEM (
     Item_ID INT PRIMARY KEY,
     Tenant_ID INT NOT NULL,
     Is_Private BIT DEFAULT 1,
+    Is_Active BIT NOT NULL DEFAULT 1,
     CONSTRAINT FK_PersonalItem_Inv FOREIGN KEY (Item_ID) REFERENCES dbo.INVENTORY_ITEM(Item_ID),
     CONSTRAINT FK_PersonalItem_Tenant FOREIGN KEY (Tenant_ID) REFERENCES dbo.TENANT(Tenant_ID)
 );
 
--- [D. Financial Management]
+/* =========================================================================
+   [D. Financial Management — System-Versioned Temporal Tables]
+   
+   Phase 2 Task 3: EXPENSE, EXPENSE_SHARE, and PAYMENT are now temporal.
+   SQL Server automatically maintains a paired history table for each,
+   enabling point-in-time queries with FOR SYSTEM_TIME AS OF <datetime>.
+   This replaces the manual EXPENSE_AUDIT_LOG trigger for change tracking.
+   ========================================================================= */
+
 CREATE TABLE dbo.EXPENSE (
     Expense_ID INT IDENTITY(1,1) PRIMARY KEY,
     Paid_By_Tenant_ID INT NOT NULL,
@@ -146,9 +218,17 @@ CREATE TABLE dbo.EXPENSE (
     Date_Incurred DATE NOT NULL,
     Split_Policy VARCHAR(50),
     Receipt_Image VARCHAR(255),
+    Is_Active BIT NOT NULL DEFAULT 1,
+
+    -- Temporal columns (auto-managed by SQL Server)
+    SysStartTime DATETIME2 GENERATED ALWAYS AS ROW START NOT NULL,
+    SysEndTime   DATETIME2 GENERATED ALWAYS AS ROW END   NOT NULL,
+    PERIOD FOR SYSTEM_TIME (SysStartTime, SysEndTime),
+
     CONSTRAINT FK_Expense_Tenant FOREIGN KEY (Paid_By_Tenant_ID) REFERENCES dbo.TENANT(Tenant_ID),
     CONSTRAINT CHK_Expense_Amount CHECK (Total_Amount > 0)
-);
+)
+WITH (SYSTEM_VERSIONING = ON (HISTORY_TABLE = dbo.EXPENSE_History));
 
 CREATE TABLE dbo.EXPENSE_SHARE (
     Share_ID INT IDENTITY(1,1) PRIMARY KEY,
@@ -156,10 +236,18 @@ CREATE TABLE dbo.EXPENSE_SHARE (
     Owed_By_Tenant_ID INT NOT NULL,
     Owed_Amount DECIMAL(10,2) NOT NULL,
     Status VARCHAR(20) DEFAULT 'Pending',
+    Is_Active BIT NOT NULL DEFAULT 1,
+
+    -- Temporal columns
+    SysStartTime DATETIME2 GENERATED ALWAYS AS ROW START NOT NULL,
+    SysEndTime   DATETIME2 GENERATED ALWAYS AS ROW END   NOT NULL,
+    PERIOD FOR SYSTEM_TIME (SysStartTime, SysEndTime),
+
     CONSTRAINT FK_ExpenseShare_Exp FOREIGN KEY (Expense_ID) REFERENCES dbo.EXPENSE(Expense_ID),
     CONSTRAINT FK_ExpenseShare_Tenant FOREIGN KEY (Owed_By_Tenant_ID) REFERENCES dbo.TENANT(Tenant_ID),
-    CONSTRAINT CHK_ExpShare_Status CHECK (Status IN ('Pending', 'Paid')) -- NEW
-);
+    CONSTRAINT CHK_ExpShare_Status CHECK (Status IN ('Pending', 'Paid'))
+)
+WITH (SYSTEM_VERSIONING = ON (HISTORY_TABLE = dbo.EXPENSE_SHARE_History));
 
 CREATE TABLE dbo.PAYMENT (
     Payment_ID INT IDENTITY(1,1) PRIMARY KEY,
@@ -169,18 +257,30 @@ CREATE TABLE dbo.PAYMENT (
     Payment_Date DATE NOT NULL,
     Note VARCHAR(255),
     Payment_Type VARCHAR(50) DEFAULT 'Settlement',
+    Is_Active BIT NOT NULL DEFAULT 1,
+
+    -- Temporal columns
+    SysStartTime DATETIME2 GENERATED ALWAYS AS ROW START NOT NULL,
+    SysEndTime   DATETIME2 GENERATED ALWAYS AS ROW END   NOT NULL,
+    PERIOD FOR SYSTEM_TIME (SysStartTime, SysEndTime),
+
     CONSTRAINT FK_Payment_Payer FOREIGN KEY (Payer_Tenant_ID) REFERENCES dbo.TENANT(Tenant_ID),
     CONSTRAINT FK_Payment_Payee FOREIGN KEY (Payee_Tenant_ID) REFERENCES dbo.TENANT(Tenant_ID),
     CONSTRAINT CHK_Payment_Amount CHECK (Amount > 0)
-);
+)
+WITH (SYSTEM_VERSIONING = ON (HISTORY_TABLE = dbo.PAYMENT_History));
 
--- [E. Chores & Governance]
+/* =========================================================================
+   [E. Chores & Governance]
+   ========================================================================= */
+
 CREATE TABLE dbo.CHORE_DEFINITION (
     Chore_ID INT IDENTITY(1,1) PRIMARY KEY,
     Task_Name VARCHAR(100) NOT NULL,
     Description VARCHAR(255),
     Difficulty_Weight INT,
-    Frequency VARCHAR(50)
+    Frequency VARCHAR(50),
+    Is_Active BIT NOT NULL DEFAULT 1
 );
 
 CREATE TABLE dbo.CHORE_ASSIGNMENT (
@@ -191,9 +291,10 @@ CREATE TABLE dbo.CHORE_ASSIGNMENT (
     Completion_Date DATE,
     Status VARCHAR(20) DEFAULT 'Pending',
     Proof_Image VARCHAR(255),
+    Is_Active BIT NOT NULL DEFAULT 1,
     CONSTRAINT FK_ChoreAssign_Chore FOREIGN KEY (Chore_ID) REFERENCES dbo.CHORE_DEFINITION(Chore_ID),
     CONSTRAINT FK_ChoreAssign_Tenant FOREIGN KEY (Assigned_Tenant_ID) REFERENCES dbo.TENANT(Tenant_ID),
-    CONSTRAINT CHK_Chore_Status CHECK (Status IN ('Pending', 'Completed')) -- NEW
+    CONSTRAINT CHK_Chore_Status CHECK (Status IN ('Pending', 'Completed'))
 );
 
 CREATE TABLE dbo.PROPOSAL (
@@ -202,8 +303,9 @@ CREATE TABLE dbo.PROPOSAL (
     Description VARCHAR(255) NOT NULL,
     Cost_Threshold DECIMAL(10,2),
     Status VARCHAR(20) DEFAULT 'Active',
+    Is_Active BIT NOT NULL DEFAULT 1,
     CONSTRAINT FK_Proposal_Tenant FOREIGN KEY (Proposed_By_Tenant_ID) REFERENCES dbo.TENANT(Tenant_ID),
-    CONSTRAINT CHK_Prop_Status CHECK (Status IN ('Active', 'Approved', 'Rejected')) -- NEW
+    CONSTRAINT CHK_Prop_Status CHECK (Status IN ('Active', 'Approved', 'Rejected'))
 );
 
 CREATE TABLE dbo.VOTE (
@@ -212,12 +314,16 @@ CREATE TABLE dbo.VOTE (
     Tenant_ID INT NOT NULL,
     Approval_Status BIT NOT NULL,
     Vote_Timestamp DATETIME NOT NULL,
+    Is_Active BIT NOT NULL DEFAULT 1,
     CONSTRAINT FK_Vote_Proposal FOREIGN KEY (Proposal_ID) REFERENCES dbo.PROPOSAL(Proposal_ID),
     CONSTRAINT FK_Vote_Tenant FOREIGN KEY (Tenant_ID) REFERENCES dbo.TENANT(Tenant_ID),
-    CONSTRAINT UQ_Vote_Tenant_Proposal UNIQUE (Proposal_ID, Tenant_ID) -- NEW (Prevents duplicate votes)
+    CONSTRAINT UQ_Vote_Tenant_Proposal UNIQUE (Proposal_ID, Tenant_ID)
 );
 
--- [F. Utility Analytics]
+/* =========================================================================
+   [F. Utility Analytics]
+   ========================================================================= */
+
 CREATE TABLE dbo.UTILITY_TYPE (
     Utility_Type_ID INT IDENTITY(1,1) PRIMARY KEY,
     Type_Name VARCHAR(50) NOT NULL UNIQUE
@@ -230,6 +336,7 @@ CREATE TABLE dbo.UTILITY_READING (
     Provider_Name VARCHAR(100),
     Meter_Value DECIMAL(10,2) NOT NULL,
     Reading_Date DATE NOT NULL,
+    Is_Active BIT NOT NULL DEFAULT 1,
     CONSTRAINT FK_Utility_Property FOREIGN KEY (Property_ID) REFERENCES dbo.PROPERTY(Property_ID),
     CONSTRAINT FK_Utility_Type FOREIGN KEY (Utility_Type_ID) REFERENCES dbo.UTILITY_TYPE(Utility_Type_ID)
 );

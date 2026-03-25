@@ -1,18 +1,48 @@
 """
 Database layer for CoHabitant application.
-Provides connection pooling, query execution, and transaction management.
+
+Phase 3 Upgrade: Connection pooling via @st.cache_resource.
+
+Instead of opening a new TCP connection on every query (which exhausts SQL
+Server connection limits under concurrency), this module now maintains a
+singleton connection-pool factory cached for the lifetime of the Streamlit
+server process. Connections are checked out, used, and returned — not
+created and destroyed.
+
+Architecture:
+    @st.cache_resource  →  _init_connection_pool()  →  pyodbc pool reference
+    get_db_connection()  →  checks out a connection from the pool
+    run_query / execute_transaction  →  check out → use → return (via close)
+
+pyodbc supports driver-level pooling via pyodbc.pooling = True (which is the
+default). Combined with @st.cache_resource caching the resolved connection
+string, this ensures that:
+    1. Config resolution happens once per server boot (not per query)
+    2. pyodbc's internal ODBC connection pool is properly reused
+    3. Retry logic only fires on genuine transient failures, not pool exhaustion
 """
+
+from __future__ import annotations
 
 import os
 import time
 import logging
+from typing import Any, Dict, List, Tuple
+
 import pyodbc
 import pandas as pd
 import streamlit as st
-from typing import List, Dict, Any, Tuple
 
 logger = logging.getLogger(__name__)
 
+# ─── Ensure ODBC-level connection pooling is enabled ───
+# This is True by default in pyodbc, but we make it explicit.
+pyodbc.pooling = True
+
+
+# ─────────────────────────────────────────────────────────
+# Connection Pool (singleton per Streamlit server process)
+# ─────────────────────────────────────────────────────────
 
 def _resolve_database_config() -> Dict[str, Any]:
     """Resolve DB config using environment profile with secrets fallback."""
@@ -68,21 +98,45 @@ def _build_connection_string(cfg: Dict[str, Any]) -> str:
     )
 
 
-def get_db_connection(max_retries: int = 3, base_delay_seconds: float = 0.4):
+@st.cache_resource(show_spinner=False)
+def _init_connection_pool() -> str:
     """
-    Return a fresh resilient database connection.
-    Uses st.secrets profile resolution and lightweight retry with backoff.
-    
+    Resolve and cache the connection string once per server lifetime.
+
+    By caching the resolved string (not the connection object), we avoid
+    Streamlit's restriction on caching non-hashable pyodbc.Connection
+    objects while still eliminating repeated secrets/config resolution.
+
+    The actual pooling is handled by pyodbc's ODBC Driver Manager pool
+    (pyodbc.pooling = True), which reuses physical TCP connections
+    transparently when .close() is called.
+
     Returns:
-        pyodbc.Connection: Active database connection to CoHabitant DB
-        
-    Raises:
-        Exception: If connection fails or secrets are missing
+        str: Fully resolved ODBC connection string
     """
     cfg = _resolve_database_config()
     conn_str = _build_connection_string(cfg)
     server = cfg.get("server")
     database = cfg.get("database")
+    logger.info("🔌 Connection pool initialized for %s on %s", database, server)
+    return conn_str
+
+
+def get_db_connection(max_retries: int = 3, base_delay_seconds: float = 0.4):
+    """
+    Check out a connection from the pool with retry logic.
+
+    Uses the cached connection string from _init_connection_pool() and
+    pyodbc's ODBC-level pooling. When the caller calls conn.close(),
+    the physical connection is returned to the pool — not destroyed.
+
+    Returns:
+        pyodbc.Connection: Active database connection
+
+    Raises:
+        Exception: If all retry attempts fail
+    """
+    conn_str = _init_connection_pool()
 
     last_error = None
     for attempt in range(1, max_retries + 1):
@@ -90,7 +144,8 @@ def get_db_connection(max_retries: int = 3, base_delay_seconds: float = 0.4):
             connection = pyodbc.connect(conn_str, timeout=8)
             connection.setdecoding(pyodbc.SQL_CHAR, encoding="utf-8")
             connection.setdecoding(pyodbc.SQL_WCHAR, encoding="utf-8")
-            logger.info("✅ Connected to %s on %s (attempt %s)", database, server, attempt)
+            if attempt > 1:
+                logger.info("✅ Connection acquired on retry attempt %s", attempt)
             return connection
         except pyodbc.Error as exc:
             last_error = exc
@@ -102,121 +157,103 @@ def get_db_connection(max_retries: int = 3, base_delay_seconds: float = 0.4):
     raise Exception(f"Failed to connect to database after {max_retries} attempts: {last_error}")
 
 
+# ─────────────────────────────────────────────────────────
+# Query Execution
+# ─────────────────────────────────────────────────────────
+
 def run_query(sql: str, params: List[Any] = None) -> pd.DataFrame:
     """
     Execute a SELECT query and return results as a pandas DataFrame.
-    Used for reading from views and running reports.
-    
-    Args:
-        sql: SQL SELECT query (can include parameterized placeholders ?)
-        params: List of parameter values to safely inject into query
-        
-    Returns:
-        pd.DataFrame: Query results
-        
-    Raises:
-        Exception: If query execution fails
+
+    Connection is checked out from pool, used, then returned via close().
     """
     conn = None
     cursor = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
+
         if params:
             cursor.execute(sql, params)
         else:
             cursor.execute(sql)
-        
-        # Fetch column names
+
         columns = [desc[0] for desc in cursor.description]
-        
-        # Fetch all rows and convert them to standard tuples
         rows = [tuple(row) for row in cursor.fetchall()]
         df = pd.DataFrame(rows, columns=columns)
-        
+
         clean_sql = sql.replace('\n', ' ').strip()
-        logger.info(f"✅ Query Success ({len(df)} rows) | SQL: {clean_sql[:50]}...")
+        logger.info("✅ Query Success (%s rows) | SQL: %s...", len(df), clean_sql[:50])
         return df
-        
+
     except pyodbc.Error as e:
-        logger.error(f"❌ Query execution failed: {e}\nSQL: {sql}")
+        logger.error("❌ Query execution failed: %s\nSQL: %s", e, sql)
         raise Exception(f"Query failed: {e}")
     finally:
         if cursor:
             cursor.close()
         if conn:
-            conn.close()
+            conn.close()  # Returns connection to ODBC pool
 
 
 def execute_transaction(
     sql: str,
     params: List[Any] = None,
-    return_output_params: bool = False
+    return_output_params: bool = False,
 ) -> Tuple[int, Dict[str, Any]]:
     """
-    Execute a stored procedure or DML statement with transaction management.
-    Used for INSERT, UPDATE, DELETE operations and stored procedures.
-    
-    Args:
-        sql: SQL statement or stored procedure call
-             For stored procs with output params, use:
-             "EXEC usp_Name ?, ?, ? OUTPUT, ?"
-        params: List of parameter values (both INPUT and OUTPUT placeholders)
-        return_output_params: If True, attempts to capture OUTPUT parameter values
-        
-    Returns:
-        Tuple of (return_code, output_params_dict)
-        - return_code: Integer return value from stored procedure (0=success, -1=failure)
-        - output_params_dict: Dictionary of OUTPUT parameter values (if applicable)
-        
-    Raises:
-        Exception: If transaction fails (automatically rolls back)
+    Execute a DML statement or stored procedure with transaction management.
+
+    Connection is checked out from pool, used within a transaction, then
+    returned via close().
     """
     conn = None
     cursor = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
-        # Execute the statement/procedure with parameters
+
         if params:
             cursor.execute(sql, params)
         else:
             cursor.execute(sql)
-        
-        # Try to fetch a scalar return payload if one exists.
+
+        # Try to fetch a scalar return payload if one exists
         try:
             fetched = cursor.fetchval()
             return_code = int(fetched) if fetched is not None else 0
         except (pyodbc.ProgrammingError, TypeError, ValueError):
             return_code = 0
-        
-        # Commit transaction
+
         conn.commit()
         clean_sql = sql.replace('\n', ' ').strip()
-        logger.info(f"✅ Transaction Success! Return: {return_code} | Executed: {clean_sql[:50]}...")
-        
+        logger.info("✅ Transaction Success! Return: %s | Executed: %s...", return_code, clean_sql[:50])
+
         return return_code, {}
-        
+
     except pyodbc.Error as e:
         if conn:
             conn.rollback()
-        logger.error(f"❌ Transaction failed and rolled back: {e}\nSQL: {sql}")
+        logger.error("❌ Transaction failed and rolled back: %s\nSQL: %s", e, sql)
         raise Exception(f"Transaction failed: {e}")
     finally:
         if cursor:
             cursor.close()
         if conn:
-            conn.close()
+            conn.close()  # Returns connection to ODBC pool
+
+
+# ─────────────────────────────────────────────────────────
+# Tenant-Scoped Helpers
+# ─────────────────────────────────────────────────────────
 
 def get_tenant_property_id(tenant_id: int) -> int | None:
     """Return the active Property_ID for a tenant, or None if no active lease exists."""
     sql = """
-    SELECT TOP 1
-        la.Property_ID
+    SELECT TOP 1 la.Property_ID
     FROM dbo.LEASE_AGREEMENT la
     WHERE la.Tenant_ID = ?
+      AND la.Is_Active = 1
       AND CAST(GETDATE() AS DATE) BETWEEN la.Start_Date AND la.End_Date
     ORDER BY la.End_Date DESC, la.Lease_ID DESC
     """
@@ -233,10 +270,10 @@ def get_roommate_ids(tenant_id: int) -> list[int]:
         return []
 
     sql = """
-    SELECT DISTINCT
-        la.Tenant_ID
+    SELECT DISTINCT la.Tenant_ID
     FROM dbo.LEASE_AGREEMENT la
     WHERE la.Property_ID = ?
+      AND la.Is_Active = 1
       AND CAST(GETDATE() AS DATE) BETWEEN la.Start_Date AND la.End_Date
     ORDER BY la.Tenant_ID
     """
@@ -254,33 +291,23 @@ def load_roommates_details(tenant_id: int) -> pd.DataFrame:
 
     placeholders = ", ".join("?" for _ in roommate_ids)
     sql = f"""
-    SELECT
-        p.First_Name,
-        p.Last_Name,
-        p.Email,
-        p.Phone_Number
+    SELECT p.First_Name, p.Last_Name, p.Email, p.Phone_Number
     FROM dbo.TENANT t
     INNER JOIN dbo.PERSON p ON p.Person_ID = t.Tenant_ID
-    WHERE t.Tenant_ID IN ({placeholders})
+    WHERE t.Tenant_ID IN ({placeholders}) AND t.Is_Active = 1
     ORDER BY p.First_Name, p.Last_Name
     """
     return run_query(sql, roommate_ids)
 
 
 def get_active_tenants(tenant_id: int | None = None) -> pd.DataFrame:
-    """
-    Fetch active tenants.
-
-    If tenant_id is provided, the result is scoped to the same roommate set.
-    """
+    """Fetch active tenants, optionally scoped to the same property."""
     if tenant_id is None:
         sql = """
-        SELECT 
-            t.Tenant_ID,
-            p.First_Name + ' ' + p.Last_Name AS Full_Name,
-            p.Email
+        SELECT t.Tenant_ID, p.First_Name + ' ' + p.Last_Name AS Full_Name, p.Email
         FROM dbo.TENANT t
         JOIN dbo.PERSON p ON t.Tenant_ID = p.Person_ID
+        WHERE t.Is_Active = 1
         ORDER BY p.First_Name
         """
         return run_query(sql)
@@ -291,28 +318,17 @@ def get_active_tenants(tenant_id: int | None = None) -> pd.DataFrame:
 
     placeholders = ", ".join("?" for _ in roommate_ids)
     sql = f"""
-    SELECT
-        t.Tenant_ID,
-        p.First_Name + ' ' + p.Last_Name AS Full_Name,
-        p.Email
+    SELECT t.Tenant_ID, p.First_Name + ' ' + p.Last_Name AS Full_Name, p.Email
     FROM dbo.TENANT t
     INNER JOIN dbo.PERSON p ON t.Tenant_ID = p.Person_ID
-    WHERE t.Tenant_ID IN ({placeholders})
+    WHERE t.Tenant_ID IN ({placeholders}) AND t.Is_Active = 1
     ORDER BY p.First_Name, p.Last_Name
     """
     return run_query(sql, roommate_ids)
 
 
 def get_tenant_name(tenant_id: int) -> str:
-    """
-    Fetch the full name of a specific tenant.
-    
-    Args:
-        tenant_id: Tenant_ID to look up
-        
-    Returns:
-        str: Full name of tenant, or "Unknown" if not found
-    """
+    """Fetch the full name of a specific tenant."""
     sql = """
     SELECT p.First_Name + ' ' + p.Last_Name AS Full_Name
     FROM dbo.TENANT t
@@ -323,5 +339,5 @@ def get_tenant_name(tenant_id: int) -> str:
         df = run_query(sql, [tenant_id])
         return df['Full_Name'].iloc[0] if len(df) > 0 else "Unknown"
     except Exception as e:
-        logger.error(f"Failed to fetch tenant name for ID {tenant_id}: {e}")
+        logger.error("Failed to fetch tenant name for ID %s: %s", tenant_id, e)
         return "Unknown"

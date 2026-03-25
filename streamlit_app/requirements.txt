@@ -1,3 +1,8 @@
+# ============================================================================
+# CoHabitant — Python Dependencies
+# ============================================================================
+# Runtime deps (required in production Docker image)
+# ============================================================================
 streamlit>=1.32.0
 pandas>=2.2.0
 plotly>=5.20.0
@@ -5,6 +10,12 @@ pyodbc>=5.1.0
 python-dotenv>=1.0.1
 google-genai>=1.10.0
 pillow>=10.3.0
+
+# ============================================================================
+# Dev/Test deps (not needed in production — install with: pip install -r requirements.txt)
+# These are included here for simplicity; a mature setup would use
+# pyproject.toml [project.optional-dependencies.dev] instead.
+# ============================================================================
 pytest>=8.0.0
 pytest-mock>=3.14.0
 hypothesis>=6.100.0

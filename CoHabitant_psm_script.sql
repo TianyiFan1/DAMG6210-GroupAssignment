@@ -3,7 +3,9 @@ GO
 
 /* =========================================================================================
    PART 1: VIEWS (The DataFrames for Streamlit & Power BI)
-   Purpose: Abstracts complex JOINs into clean, flattened tables for rapid visualization.
+   
+   Phase 2 Update: All views now filter on Is_Active = 1 to exclude soft-deleted
+   records from dashboards and reports.
 ========================================================================================= */
 
 -- View 1: Financial Ledger Dashboard
@@ -14,12 +16,13 @@ SELECT
     p.First_Name + ' ' + p.Last_Name AS Full_Name,
     t.Current_Net_Balance,
     ISNULL(SUM(es.Owed_Amount), 0) AS Total_Pending_Debts,
-    (SELECT ISNULL(SUM(Amount), 0) FROM dbo.PAYMENT WHERE Payer_Tenant_ID = t.Tenant_ID) 
-    + ISNULL((SELECT SUM(Total_Amount) FROM dbo.EXPENSE WHERE Paid_By_Tenant_ID = t.Tenant_ID), 0)
+    (SELECT ISNULL(SUM(Amount), 0) FROM dbo.PAYMENT WHERE Payer_Tenant_ID = t.Tenant_ID AND Is_Active = 1) 
+    + ISNULL((SELECT SUM(Total_Amount) FROM dbo.EXPENSE WHERE Paid_By_Tenant_ID = t.Tenant_ID AND Is_Active = 1), 0)
     AS Lifetime_Paid
 FROM dbo.TENANT t
 JOIN dbo.PERSON p ON t.Tenant_ID = p.Person_ID
-LEFT JOIN dbo.EXPENSE_SHARE es ON t.Tenant_ID = es.Owed_By_Tenant_ID AND es.Status = 'Pending'
+LEFT JOIN dbo.EXPENSE_SHARE es ON t.Tenant_ID = es.Owed_By_Tenant_ID AND es.Status = 'Pending' AND es.Is_Active = 1
+WHERE t.Is_Active = 1 AND p.Is_Active = 1
 GROUP BY t.Tenant_ID, p.First_Name, p.Last_Name, t.Current_Net_Balance;
 GO
 
@@ -35,7 +38,8 @@ SELECT
     SUM(CASE WHEN ca.Status = 'Pending' AND ca.Due_Date < CAST(GETDATE() AS DATE) THEN 1 ELSE 0 END) AS Overdue_Chores
 FROM dbo.TENANT t
 JOIN dbo.PERSON p ON t.Tenant_ID = p.Person_ID
-LEFT JOIN dbo.CHORE_ASSIGNMENT ca ON t.Tenant_ID = ca.Assigned_Tenant_ID
+LEFT JOIN dbo.CHORE_ASSIGNMENT ca ON t.Tenant_ID = ca.Assigned_Tenant_ID AND ca.Is_Active = 1
+WHERE t.Is_Active = 1 AND p.Is_Active = 1
 GROUP BY t.Tenant_ID, p.First_Name, t.Tenant_Responsibility_Score;
 GO
 
@@ -50,30 +54,34 @@ SELECT
     p.Street_Address
 FROM dbo.UTILITY_READING ur
 JOIN dbo.UTILITY_TYPE ut ON ur.Utility_Type_ID = ut.Utility_Type_ID
-JOIN dbo.PROPERTY p ON ur.Property_ID = p.Property_ID;
+JOIN dbo.PROPERTY p ON ur.Property_ID = p.Property_ID
+WHERE ur.Is_Active = 1 AND p.Is_Active = 1;
 GO
 
 
 /* =========================================================================================
    PART 2: USER-DEFINED FUNCTIONS (UDFs)
-   Purpose: Encapsulates reusable mathematical and temporal logic to keep code DRY.
 ========================================================================================= */
 
--- UDF 1 (Scalar): Calculate exact split amount based on active household size
-CREATE OR ALTER FUNCTION dbo.fn_CalculateExpenseShare (@TotalAmount DECIMAL(10,2))
+-- UDF 1 (Scalar): Calculate exact split amount scoped to a single property
+CREATE OR ALTER FUNCTION dbo.fn_CalculateExpenseShare (
+    @TotalAmount DECIMAL(10,2),
+    @Property_ID INT
+)
 RETURNS DECIMAL(10,2)
 AS
 BEGIN
     DECLARE @ActiveTenants INT;
     DECLARE @Share DECIMAL(10,2);
     
-    -- Count how many tenants have an active lease today
-    SELECT @ActiveTenants = COUNT(*) 
-    FROM dbo.LEASE_AGREEMENT 
-    WHERE Start_Date <= CAST(GETDATE() AS DATE) 
-      AND End_Date >= CAST(GETDATE() AS DATE);
+    SELECT @ActiveTenants = COUNT(DISTINCT la.Tenant_ID) 
+    FROM dbo.LEASE_AGREEMENT la
+    WHERE la.Property_ID = @Property_ID
+      AND la.Is_Active = 1
+      AND la.Start_Date <= CAST(GETDATE() AS DATE) 
+      AND la.End_Date >= CAST(GETDATE() AS DATE);
       
-    IF @ActiveTenants = 0 SET @ActiveTenants = 1; -- Prevent divide by zero error
+    IF @ActiveTenants = 0 SET @ActiveTenants = 1;
     
     SET @Share = @TotalAmount / @ActiveTenants;
     RETURN @Share;
@@ -85,42 +93,46 @@ CREATE OR ALTER FUNCTION dbo.fn_GetPendingVoteCount (@Proposal_ID INT)
 RETURNS INT
 AS
 BEGIN
-        DECLARE @ProposalPropertyID INT;
-        DECLARE @TotalEligibleTenants INT;
+    DECLARE @ProposalPropertyID INT;
+    DECLARE @TotalEligibleTenants INT;
     DECLARE @VotesCast INT;
 
-        SELECT TOP 1
-                @ProposalPropertyID = la.Property_ID
-        FROM dbo.PROPOSAL p
-        INNER JOIN dbo.LEASE_AGREEMENT la ON la.Tenant_ID = p.Proposed_By_Tenant_ID
-        WHERE p.Proposal_ID = @Proposal_ID
-            AND CAST(GETDATE() AS DATE) BETWEEN la.Start_Date AND la.End_Date
-        ORDER BY la.End_Date DESC, la.Lease_ID DESC;
+    SELECT TOP 1
+        @ProposalPropertyID = la.Property_ID
+    FROM dbo.PROPOSAL p
+    INNER JOIN dbo.LEASE_AGREEMENT la ON la.Tenant_ID = p.Proposed_By_Tenant_ID
+    WHERE p.Proposal_ID = @Proposal_ID
+        AND p.Is_Active = 1
+        AND la.Is_Active = 1
+        AND CAST(GETDATE() AS DATE) BETWEEN la.Start_Date AND la.End_Date
+    ORDER BY la.End_Date DESC, la.Lease_ID DESC;
 
-        IF @ProposalPropertyID IS NULL
-                RETURN 0;
-    
-        SELECT @TotalEligibleTenants = COUNT(DISTINCT la.Tenant_ID)
-        FROM dbo.LEASE_AGREEMENT la
-        WHERE la.Property_ID = @ProposalPropertyID
-            AND CAST(GETDATE() AS DATE) BETWEEN la.Start_Date AND la.End_Date;
+    IF @ProposalPropertyID IS NULL
+        RETURN 0;
 
-        SELECT @VotesCast = COUNT(DISTINCT v.Tenant_ID)
-        FROM dbo.VOTE v
-        INNER JOIN dbo.LEASE_AGREEMENT la ON la.Tenant_ID = v.Tenant_ID
-        WHERE v.Proposal_ID = @Proposal_ID
-            AND la.Property_ID = @ProposalPropertyID
-            AND CAST(GETDATE() AS DATE) BETWEEN la.Start_Date AND la.End_Date;
+    SELECT @TotalEligibleTenants = COUNT(DISTINCT la.Tenant_ID)
+    FROM dbo.LEASE_AGREEMENT la
+    WHERE la.Property_ID = @ProposalPropertyID
+        AND la.Is_Active = 1
+        AND CAST(GETDATE() AS DATE) BETWEEN la.Start_Date AND la.End_Date;
 
-        IF @TotalEligibleTenants < @VotesCast
-                SET @VotesCast = @TotalEligibleTenants;
-    
-        RETURN (@TotalEligibleTenants - @VotesCast);
+    SELECT @VotesCast = COUNT(DISTINCT v.Tenant_ID)
+    FROM dbo.VOTE v
+    INNER JOIN dbo.LEASE_AGREEMENT la ON la.Tenant_ID = v.Tenant_ID
+    WHERE v.Proposal_ID = @Proposal_ID
+        AND v.Is_Active = 1
+        AND la.Property_ID = @ProposalPropertyID
+        AND la.Is_Active = 1
+        AND CAST(GETDATE() AS DATE) BETWEEN la.Start_Date AND la.End_Date;
+
+    IF @TotalEligibleTenants < @VotesCast
+        SET @VotesCast = @TotalEligibleTenants;
+
+    RETURN (@TotalEligibleTenants - @VotesCast);
 END;
 GO
 
--- UDF 3 (Table-Valued): Point-in-Time House Roster 
--- Vital for retroactively splitting bills that arrive months late.
+-- UDF 3 (Table-Valued): Point-in-Time House Roster
 CREATE OR ALTER FUNCTION dbo.fn_HouseRosterAsOfDate (@TargetDate DATE)
 RETURNS TABLE
 AS
@@ -134,12 +146,18 @@ RETURN (
     JOIN dbo.PERSON p ON t.Tenant_ID = p.Person_ID
     JOIN dbo.LEASE_AGREEMENT la ON t.Tenant_ID = la.Tenant_ID
     WHERE @TargetDate BETWEEN la.Start_Date AND la.End_Date
+      AND la.Is_Active = 1
+      AND t.Is_Active = 1
 );
 GO
 
 
 /* =========================================================================================
    PART 3: STORED PROCEDURES (The Backend API Layer)
+   
+   Phase 2 Update: All CATCH blocks now INSERT into dbo.SYSTEM_ERROR_LOG
+   before re-throwing the error. This creates a persistent server-side audit
+   trail of every failed transaction, independent of the Python layer.
 ========================================================================================= */
 
 -- SP 1: Create an Expense and Auto-Split it
@@ -148,29 +166,56 @@ CREATE OR ALTER PROCEDURE dbo.usp_CreateHouseholdExpense
     @Amount DECIMAL(10,2),
     @SplitPolicy VARCHAR(50),
     @ReceiptURL VARCHAR(255),
-    @NewExpenseID INT OUTPUT -- OUTPUT 1
+    @NewExpenseID INT OUTPUT
 AS
 BEGIN
     SET XACT_ABORT ON; 
     BEGIN TRY
         BEGIN TRAN;
         
+        DECLARE @PayerPropertyID INT;
+        SELECT TOP 1 @PayerPropertyID = la.Property_ID
+        FROM dbo.LEASE_AGREEMENT la
+        WHERE la.Tenant_ID = @PaidByTenantID
+          AND la.Is_Active = 1
+          AND CAST(GETDATE() AS DATE) BETWEEN la.Start_Date AND la.End_Date
+        ORDER BY la.End_Date DESC, la.Lease_ID DESC;
+
+        IF @PayerPropertyID IS NULL
+            THROW 51004, 'Payer does not have an active lease. Cannot create expense.', 1;
+
         INSERT INTO dbo.EXPENSE (Paid_By_Tenant_ID, Total_Amount, Date_Incurred, Split_Policy, Receipt_Image)
         VALUES (@PaidByTenantID, @Amount, CAST(GETDATE() AS DATE), @SplitPolicy, @ReceiptURL);
         
         SET @NewExpenseID = SCOPE_IDENTITY();
         
-        DECLARE @CalculatedShare DECIMAL(10,2) = dbo.fn_CalculateExpenseShare(@Amount);
+        DECLARE @CalculatedShare DECIMAL(10,2) = dbo.fn_CalculateExpenseShare(@Amount, @PayerPropertyID);
         
         INSERT INTO dbo.EXPENSE_SHARE (Expense_ID, Owed_By_Tenant_ID, Owed_Amount, Status)
-        SELECT @NewExpenseID, Tenant_ID, @CalculatedShare, 'Pending'
-        FROM dbo.TENANT WHERE Tenant_ID <> @PaidByTenantID;
+        SELECT @NewExpenseID, la.Tenant_ID, @CalculatedShare, 'Pending'
+        FROM dbo.LEASE_AGREEMENT la
+        WHERE la.Property_ID = @PayerPropertyID
+          AND la.Is_Active = 1
+          AND CAST(GETDATE() AS DATE) BETWEEN la.Start_Date AND la.End_Date
+          AND la.Tenant_ID <> @PaidByTenantID;
         
         COMMIT TRAN;
         RETURN 0; 
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK TRAN;
+
+        -- Log to SYSTEM_ERROR_LOG before re-raising
+        INSERT INTO dbo.SYSTEM_ERROR_LOG (
+            Error_Message, Error_Severity, Error_State,
+            Error_Procedure, Error_Line, Tenant_ID, Additional_Context
+        )
+        VALUES (
+            ERROR_MESSAGE(), ERROR_SEVERITY(), ERROR_STATE(),
+            ERROR_PROCEDURE(), ERROR_LINE(), @PaidByTenantID,
+            CONCAT('Amount=', @Amount, ' SplitPolicy=', @SplitPolicy)
+        );
+
         DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
         RAISERROR(@ErrMsg, 16, 1);
         RETURN -1; 
@@ -184,7 +229,7 @@ CREATE OR ALTER PROCEDURE dbo.usp_ProcessTenantPayment
     @Amount DECIMAL(10,2),
     @Note VARCHAR(255),
     @NewBalance DECIMAL(10,2) OUTPUT,
-    @PayeeTenantID INT = NULL  -- Optional: defaults to payer for self-payments
+    @PayeeTenantID INT = NULL
 AS
 BEGIN
     SET XACT_ABORT ON;
@@ -194,7 +239,6 @@ BEGIN
         IF @Amount IS NULL OR @Amount <= 0
             THROW 51003, 'Payment amount must be greater than zero.', 1;
         
-        -- If payee not specified, default to payer (self-payment tracking)
         IF @PayeeTenantID IS NULL
             SET @PayeeTenantID = @PayerTenantID;
         
@@ -205,7 +249,6 @@ BEGIN
         SET Current_Net_Balance = ISNULL(Current_Net_Balance, 0) + @Amount
         WHERE Tenant_ID = @PayerTenantID;
         
-        -- Return the new balance to the frontend
         SELECT @NewBalance = Current_Net_Balance FROM dbo.TENANT WHERE Tenant_ID = @PayerTenantID;
         
         COMMIT TRAN;
@@ -213,6 +256,17 @@ BEGIN
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK TRAN;
+
+        INSERT INTO dbo.SYSTEM_ERROR_LOG (
+            Error_Message, Error_Severity, Error_State,
+            Error_Procedure, Error_Line, Tenant_ID, Additional_Context
+        )
+        VALUES (
+            ERROR_MESSAGE(), ERROR_SEVERITY(), ERROR_STATE(),
+            ERROR_PROCEDURE(), ERROR_LINE(), @PayerTenantID,
+            CONCAT('Amount=', @Amount, ' PayeeTenantID=', ISNULL(@PayeeTenantID, -1))
+        );
+
         THROW;
     END CATCH
 END;
@@ -223,10 +277,10 @@ CREATE OR ALTER PROCEDURE dbo.usp_CastProposalVote
     @ProposalID INT,
     @TenantID INT,
     @IsApproved BIT,
-    @FinalStatus VARCHAR(20) OUTPUT -- OUTPUT 3 (Added per Copilot)
+    @FinalStatus VARCHAR(20) OUTPUT
 AS
 BEGIN
-    SET XACT_ABORT ON; -- Added per Copilot for consistency
+    SET XACT_ABORT ON;
     BEGIN TRY
         BEGIN TRAN;
 
@@ -239,6 +293,8 @@ BEGIN
         INNER JOIN dbo.LEASE_AGREEMENT la ON la.Tenant_ID = p.Proposed_By_Tenant_ID
         WHERE p.Proposal_ID = @ProposalID
           AND p.Status = 'Active'
+          AND p.Is_Active = 1
+          AND la.Is_Active = 1
           AND CAST(GETDATE() AS DATE) BETWEEN la.Start_Date AND la.End_Date
         ORDER BY la.End_Date DESC, la.Lease_ID DESC;
 
@@ -249,20 +305,20 @@ BEGIN
             @VoterPropertyID = la.Property_ID
         FROM dbo.LEASE_AGREEMENT la
         WHERE la.Tenant_ID = @TenantID
+          AND la.Is_Active = 1
           AND CAST(GETDATE() AS DATE) BETWEEN la.Start_Date AND la.End_Date
         ORDER BY la.End_Date DESC, la.Lease_ID DESC;
 
         IF @VoterPropertyID IS NULL OR @VoterPropertyID <> @ProposalPropertyID
             THROW 51002, 'Tenant is not eligible to vote on this proposal.', 1;
         
-        -- The UNIQUE constraint (added below) handles duplicate prevention now
         INSERT INTO dbo.VOTE (Proposal_ID, Tenant_ID, Approval_Status, Vote_Timestamp)
         VALUES (@ProposalID, @TenantID, @IsApproved, GETDATE());
         
         IF dbo.fn_GetPendingVoteCount(@ProposalID) = 0
         BEGIN
-            DECLARE @YesVotes INT = (SELECT COUNT(*) FROM dbo.VOTE WHERE Proposal_ID = @ProposalID AND Approval_Status = 1);
-            DECLARE @TotalVotes INT = (SELECT COUNT(*) FROM dbo.VOTE WHERE Proposal_ID = @ProposalID);
+            DECLARE @YesVotes INT = (SELECT COUNT(*) FROM dbo.VOTE WHERE Proposal_ID = @ProposalID AND Approval_Status = 1 AND Is_Active = 1);
+            DECLARE @TotalVotes INT = (SELECT COUNT(*) FROM dbo.VOTE WHERE Proposal_ID = @ProposalID AND Is_Active = 1);
             
             IF CAST(@YesVotes AS FLOAT) / @TotalVotes >= 0.51
                 SET @FinalStatus = 'Approved';
@@ -273,13 +329,24 @@ BEGIN
         END
         ELSE
         BEGIN
-            SET @FinalStatus = 'Active'; -- Still waiting on votes
+            SET @FinalStatus = 'Active';
         END
         
         COMMIT TRAN;
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK TRAN;
+
+        INSERT INTO dbo.SYSTEM_ERROR_LOG (
+            Error_Message, Error_Severity, Error_State,
+            Error_Procedure, Error_Line, Tenant_ID, Additional_Context
+        )
+        VALUES (
+            ERROR_MESSAGE(), ERROR_SEVERITY(), ERROR_STATE(),
+            ERROR_PROCEDURE(), ERROR_LINE(), @TenantID,
+            CONCAT('ProposalID=', @ProposalID, ' IsApproved=', @IsApproved)
+        );
+
         THROW;
     END CATCH
 END;
@@ -287,26 +354,19 @@ GO
 
 
 /* =========================================================================================
-   PART 4: DML TRIGGER (Audit & Security)
-   Purpose: Prevents silent financial tampering by creating an immutable paper trail.
+   PART 4: DML TRIGGER (Audit — Legacy)
+   
+   Phase 2 Note: The EXPENSE, EXPENSE_SHARE, and PAYMENT tables are now
+   system-versioned temporal tables. SQL Server automatically maintains
+   full row-level history in the paired *_History tables. As a result,
+   this manual trigger is retained only as a secondary audit trail and
+   for backward compatibility with existing reporting.
+   
+   Important: With soft deletes, expenses are no longer physically DELETEd.
+   The "DELETE" branch below fires only if someone bypasses the app and
+   runs a raw DELETE, acting as a safety net.
 ========================================================================================= */
 
--- Create the Audit Log Table (Hidden from normal UI)
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'EXPENSE_AUDIT_LOG')
-BEGIN
-    CREATE TABLE dbo.EXPENSE_AUDIT_LOG (
-        Audit_ID INT IDENTITY(1,1) PRIMARY KEY,
-        Expense_ID INT NOT NULL,
-        Old_Amount DECIMAL(10,2),
-        New_Amount DECIMAL(10,2),
-        Action_Type VARCHAR(10),
-        Changed_By_User VARCHAR(100),
-        Change_Timestamp DATETIME DEFAULT GETDATE()
-    );
-END
-GO
-
--- Create the Trigger on the EXPENSE table
 CREATE OR ALTER TRIGGER dbo.trg_AuditFinancialChanges
 ON dbo.EXPENSE
 AFTER UPDATE, DELETE
@@ -314,7 +374,6 @@ AS
 BEGIN
     SET NOCOUNT ON;
     
-    -- Handle Updates (e.g., Someone maliciously changes a $50 bill to $100)
     IF EXISTS (SELECT * FROM inserted) AND EXISTS (SELECT * FROM deleted)
     BEGIN
         INSERT INTO dbo.EXPENSE_AUDIT_LOG (Expense_ID, Old_Amount, New_Amount, Action_Type, Changed_By_User)
@@ -323,13 +382,12 @@ BEGIN
             d.Total_Amount, 
             i.Total_Amount, 
             'UPDATE', 
-            SYSTEM_USER -- Captures the active database login
+            SYSTEM_USER
         FROM inserted i
         JOIN deleted d ON i.Expense_ID = d.Expense_ID
-        WHERE i.Total_Amount <> d.Total_Amount; -- Only log if the money amount actually changed
+        WHERE i.Total_Amount <> d.Total_Amount;
     END
     
-    -- Handle Deletes (e.g., Someone deletes a bill to avoid paying it)
     ELSE IF EXISTS (SELECT * FROM deleted) AND NOT EXISTS (SELECT * FROM inserted)
     BEGIN
         INSERT INTO dbo.EXPENSE_AUDIT_LOG (Expense_ID, Old_Amount, New_Amount, Action_Type, Changed_By_User)

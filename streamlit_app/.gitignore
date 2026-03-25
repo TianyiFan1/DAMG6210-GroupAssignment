@@ -13,7 +13,10 @@ venv/
 env/
 .venv
 .hypothesis/
-.hypthesis/
+.pytest_cache/
+
+# Docker
+*.log
 
 # IDE
 .vscode/

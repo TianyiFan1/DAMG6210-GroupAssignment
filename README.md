@@ -1,34 +1,67 @@
-# Co-Habit — Intelligent Shared Living & Expense Management System
+# CoHabitant — Intelligent Shared Living & Expense Management System
+
+> **DAMG 6210 — Database Management and Database Design**
+> Northeastern University, Spring 2026
+> Team: Deep Patel, Tianyi Fan, Ashfaq Ahmed Mohd
 
 ## Mission Statement
-To design and implement a centralized household management database that reduces conflict in shared living environments. The system integrates inventory tracking, expense splitting, and chore scheduling into a single source of truth, ensuring transparency and fairness among tenants while maintaining a digital paper trail for landlord interactions and lease compliance.
 
-## Mission Objectives
+A centralized household management database that reduces conflict in shared living environments. The system integrates inventory tracking, expense splitting, chore scheduling, and democratic governance into a single source of truth — ensuring transparency and fairness among tenants while maintaining a digital paper trail for landlord interactions and lease compliance.
 
-### 1) Smart Inventory & Auto-Replenishment
-- Track shared consumable items (e.g., Toilet Paper, Dish Soap, Olive Oil) with low-stock thresholds.
-- Differentiate between **Personal** inventory (e.g., "My Yogurt") and **Shared** inventory (e.g., "Our Milk") to prevent unauthorized consumption.
+## Key Features
 
-### 2) Multi-Model Expense Splitting
-- Log household purchases and generate debts using variable logic (Equal Split, Consumption-Based, Fixed Ratio).
-- Maintain a running **net balance** ledger between roommates to minimize transfers.
+- **Splitwise-Style Financial Math** — Equal, custom, and consumption-based expense splitting with pairwise settle-up
+- **AI Receipt Scanner** — Gemini-powered receipt parsing with auto-fill for amount, category, and split policy
+- **Walled Garden Architecture** — Property-scoped tenant isolation at both application and database layers
+- **System-Versioned Temporal Tables** — Automatic point-in-time audit history on all financial tables
+- **Soft Delete Infrastructure** — `Is_Active` flag on all 18 tables; no data is ever physically removed
+- **Centralized Error Logging** — `SYSTEM_ERROR_LOG` captures all SP failures with full error context
+- **AES-256 Encryption** — Landlord PII (bank details, tax ID) encrypted via SQL Server certificate chain
+- **Role-Based Access Control** — `auth_gate()` middleware enforces Tenant/Landlord page-level access
+- **Connection Pooling** — ODBC-level pooling with `@st.cache_resource` singleton initialization
+- **CI/CD Pipeline** — GitHub Actions running pytest + Docker build on every push
 
-### 3) Dynamic Chore Roster & Verification
-- Assign tasks via rotating schedule (Round Robin) or weighted burden rules.
-- Require **proof of completion** (timestamp/photo) before a task moves from Pending to Done.
+## Technology Stack
 
-### 4) Sub-Lease & Guest Management
-- Track authorized guests and overnight stays to comply with lease guest policies.
-- Manage sub-letters with fixed date ranges and auto-calculate pro-rated utility shares.
+| Layer | Technology |
+|-------|-----------|
+| Frontend | Streamlit, Plotly |
+| Backend | Python 3.11, pyodbc |
+| Database | Microsoft SQL Server 2022 (Temporal Tables, AES-256) |
+| AI | Google Gemini 2.5 Flash |
+| DevOps | Docker, docker-compose, GitHub Actions |
+| Testing | pytest, Hypothesis, pytest-mock |
 
-### 5) Utility Usage Analytics
-- Store monthly meter readings for Electricity/Gas/Water.
-- Calculate daily average costs to detect usage spikes and correlate with seasons/behaviors.
+## Quick Start
 
-### 6) Asset & Damage Log
-- Maintain landlord asset registry (furniture/appliances) and condition history.
-- Log incidents (e.g., broken window) with photos and timestamps for deposit dispute protection.
+```powershell
+# 1. Run SQL scripts in order (schema → psm → indexes → inserts → encryption)
+# 2. cd streamlit_app && pip install -r requirements.txt
+# 3. cp .streamlit/secrets.toml.template .streamlit/secrets.toml  (edit credentials)
+# 4. streamlit run app.py
+```
 
-### 7) Voting & House Agreements
-- Record house rules and voting records for major decisions (e.g., buying a microwave).
-- Require recorded approval for financial decisions exceeding a threshold (e.g., $50+).
+See [`streamlit_app/README.md`](streamlit_app/README.md) for detailed setup, Docker instructions, testing guide, and Azure deployment steps.
+
+## Data Model
+
+- **Conceptual Model:** [`ConceptualModel.svg`](ConceptualModel.svg)
+- **Logical ERD:** [`LogicalERDModel.svg`](LogicalERDModel.svg)
+- **Physical Schema:** [`schema-CoHabitant.svg`](schema-CoHabitant.svg)
+- **Power BI Report:** [`visualization_report.pdf`](visualization_report.pdf)
+
+## Repository Structure
+
+```
+DAMG6210-GroupAssignment/
+├── .github/workflows/main.yml       # CI pipeline
+├── CoHabitant_schema.sql             # 18 tables + 3 temporal + error log
+├── CoHabitant_psm_script.sql         # Views, UDFs, SPs, trigger
+├── CoHabitant_indexes_script.sql     # 5 filtered indexes
+├── CoHabitant_inserts.sql            # Seed data
+├── CoHabitant_encryption_script.sql  # AES-256 PII encryption
+├── docker-compose.yml                # Local dev stack
+├── streamlit_app/                    # Full application (see inner README)
+├── *.svg / *.md                      # ERD models
+└── visualization_report.*            # Power BI deliverables
+```
