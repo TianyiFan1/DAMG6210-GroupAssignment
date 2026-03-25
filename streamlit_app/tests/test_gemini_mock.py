@@ -66,7 +66,19 @@ class TestParseReceiptWithAI:
         mock_client = MagicMock()
         mock_client.models.generate_content.return_value = mock_response
         return mock_client
-
+    def _get_page_module(self):
+        """Safely import the Streamlit page module despite emojis and numbers in filename."""
+        import importlib.util
+        from pathlib import Path
+        
+        # Build absolute path to the financials page
+        page_path = Path(__file__).resolve().parents[1] / "pages" / "1_💸_Financials.py"
+        
+        # Load the module manually
+        spec = importlib.util.spec_from_file_location("financials_page", str(page_path))
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
     @pytest.mark.usefixtures("_mock_secrets")
     def test_happy_path_valid_json(self):
         """Valid JSON from Gemini → correctly parsed dict with all 6 fields."""
@@ -80,13 +92,9 @@ class TestParseReceiptWithAI:
         }
 
         mock_client = self._make_mock_client(json.dumps(expected))
+        mod = self._get_page_module()
 
         with patch("pages.1_💸_Financials._get_gemini_client", return_value=mock_client):
-            # Import after mocking to avoid import-time side effects
-            from pages import __import__  # noqa: just ensuring path
-            # Direct import of the function
-            import importlib
-            mod = importlib.import_module("pages.1_💸_Financials")
             result = mod.parse_receipt_with_ai(_TINY_PNG)
 
         assert result == expected
@@ -97,10 +105,9 @@ class TestParseReceiptWithAI:
     def test_malformed_json_returns_empty_dict(self):
         """Garbage response from Gemini → graceful empty dict, no crash."""
         mock_client = self._make_mock_client("This is not JSON at all {{{")
+        mod = self._get_page_module()
 
-        with patch("pages.1_💸_Financials._get_gemini_client", return_value=mock_client):
-            import importlib
-            mod = importlib.import_module("pages.1_💸_Financials")
+        with patch.object(mod, "_get_gemini_client", return_value=mock_client):
             result = mod.parse_receipt_with_ai(_TINY_PNG)
 
         assert result == {}
@@ -109,10 +116,9 @@ class TestParseReceiptWithAI:
     def test_non_dict_json_returns_empty_dict(self):
         """Gemini returns a JSON list instead of object → empty dict."""
         mock_client = self._make_mock_client('[1, 2, 3]')
+        mod = self._get_page_module()
 
-        with patch("pages.1_💸_Financials._get_gemini_client", return_value=mock_client):
-            import importlib
-            mod = importlib.import_module("pages.1_💸_Financials")
+        with patch.object(mod, "_get_gemini_client", return_value=mock_client):
             result = mod.parse_receipt_with_ai(_TINY_PNG)
 
         assert result == {}
@@ -124,10 +130,9 @@ class TestParseReceiptWithAI:
                    "notes": "", "split_policy": "Equal", "date_incurred": "2026-01-01"}
         fenced = f"```json\n{json.dumps(payload)}\n```"
         mock_client = self._make_mock_client(fenced)
+        mod = self._get_page_module()
 
-        with patch("pages.1_💸_Financials._get_gemini_client", return_value=mock_client):
-            import importlib
-            mod = importlib.import_module("pages.1_💸_Financials")
+        with patch.object(mod, "_get_gemini_client", return_value=mock_client):
             result = mod.parse_receipt_with_ai(_TINY_PNG)
 
         assert result["amount"] == 10.0
@@ -137,14 +142,13 @@ class TestParseReceiptWithAI:
         """Gemini returns partial JSON (missing some keys) → returned as-is."""
         partial = {"amount": 5.0, "description": "Partial"}
         mock_client = self._make_mock_client(json.dumps(partial))
+        mod = self._get_page_module()
 
-        with patch("pages.1_💸_Financials._get_gemini_client", return_value=mock_client):
-            import importlib
-            mod = importlib.import_module("pages.1_💸_Financials")
+        with patch.object(mod, "_get_gemini_client", return_value=mock_client):
             result = mod.parse_receipt_with_ai(_TINY_PNG)
 
         assert result["amount"] == 5.0
-        assert "category" not in result  # Missing keys are simply absent
+        assert "category" not in result
 
 
 # ═══════════════════════════════════════════════════════════
@@ -154,9 +158,24 @@ class TestParseReceiptWithAI:
 class TestGeminiRetryBehavior:
     """Test that the backoff wrapper retries correctly and fails cleanly."""
 
+    def _get_page_module(self):
+        """Safely import the Streamlit page module despite emojis and numbers in filename."""
+        import importlib.util
+        from pathlib import Path
+        
+        # Build absolute path to the financials page
+        page_path = Path(__file__).resolve().parents[1] / "pages" / "1_💸_Financials.py"
+        
+        # Load the module manually
+        spec = importlib.util.spec_from_file_location("financials_page", str(page_path))
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
     @pytest.mark.usefixtures("_mock_secrets")
     def test_retry_succeeds_on_second_attempt(self):
         """First call fails, second succeeds → response returned, no error."""
+        import json
         mock_response = MagicMock()
         mock_response.text = json.dumps({"amount": 99.0})
 
@@ -166,11 +185,12 @@ class TestGeminiRetryBehavior:
             mock_response,                          # Attempt 2: succeed
         ]
 
-        with patch("pages.1_💸_Financials._get_gemini_client", return_value=mock_client):
-            with patch("pages.1_💸_Financials.time.sleep"):  # Skip actual sleep
-                import importlib
-                mod = importlib.import_module("pages.1_💸_Financials")
+        mod = self._get_page_module()
+
+        with patch.object(mod, "_get_gemini_client", return_value=mock_client):
+            with patch.object(mod.time, "sleep"):  # Skip actual sleep
                 from PIL import Image
+                import io
                 img = Image.open(io.BytesIO(_TINY_PNG))
                 result = mod._call_gemini_with_backoff(img, "test prompt", max_attempts=3)
 
@@ -183,11 +203,12 @@ class TestGeminiRetryBehavior:
         mock_client = MagicMock()
         mock_client.models.generate_content.side_effect = RuntimeError("Persistent failure")
 
-        with patch("pages.1_💸_Financials._get_gemini_client", return_value=mock_client):
-            with patch("pages.1_💸_Financials.time.sleep"):
-                import importlib
-                mod = importlib.import_module("pages.1_💸_Financials")
+        mod = self._get_page_module()
+
+        with patch.object(mod, "_get_gemini_client", return_value=mock_client):
+            with patch.object(mod.time, "sleep"):
                 from PIL import Image
+                import io
                 img = Image.open(io.BytesIO(_TINY_PNG))
 
                 with pytest.raises(RuntimeError, match="Persistent failure"):
