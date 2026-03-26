@@ -9,6 +9,7 @@ import pandas as pd
 import streamlit as st
 
 from utils.auth import auth_gate
+from utils.state import AppState
 from utils.db import run_query, execute_transaction, get_roommate_ids, load_roommates_details
 
 logger = logging.getLogger(__name__)
@@ -147,7 +148,9 @@ def tab_define_chore(tenant_id: int):
 
 def main():
     auth_gate("Tenant")
-    tenant_id = int(st.session_state.get("logged_in_user_id"))
+    state = AppState()
+    tenant_id = state.user_id
+
     st.title("👥 House Hub")
     st.caption("Manage guests, subleases, and chore definitions.")
     tab1, tab2, tab3, tab4 = st.tabs(["🏠 My Lease Details", "👤 Register Guest", "🏠 Create Sublease", "✓ Define Chore"])

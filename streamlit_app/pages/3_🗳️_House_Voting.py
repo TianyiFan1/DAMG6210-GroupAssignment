@@ -9,6 +9,7 @@ import streamlit as st
 import plotly.graph_objects as go
 
 from utils.auth import auth_gate
+from utils.state import AppState
 from utils.db import execute_transaction, run_query, get_roommate_ids
 
 logger = logging.getLogger(__name__)
@@ -125,7 +126,8 @@ def render_vote_breakdown(proposals_df: pd.DataFrame):
 
 def main():
     auth_gate("Tenant")
-    tenant_id = int(st.session_state["logged_in_tenant_id"])
+    state = AppState()
+    tenant_id = state.tenant_id
     st.title("🗳️ House Voting")
     st.caption("Propose new rules and vote on active house decisions.")
     try:

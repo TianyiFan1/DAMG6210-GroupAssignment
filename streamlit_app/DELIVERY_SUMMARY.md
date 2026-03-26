@@ -1,282 +1,167 @@
-# 🏠 CoHabitant Streamlit Application — DELIVERY SUMMARY
+# 🏠 CoHabitant — Architectural Hardening Delivery Summary
 
-## ✅ PROJECT DELIVERABLES
-
-All 5 code blocks requested have been scaffolded and delivered:
-
-### 1. ✅ **Folder & File Structure Tree**
-```
-📦 streamlit_app/
-├── .streamlit/
-│   ├── config.toml              (UI theme configuration)
-│   └── secrets.toml.template    (Database credentials template - COPY & FILL)
-├── pages/
-│   ├── __init__.py
-│   └── 1_💸_Financials.py       (✅ FULL CRUD IMPLEMENTATION)
-├── utils/
-│   ├── __init__.py
-│   └── db.py                    (✅ DATABASE LAYER)
-├── app.py                       (✅ MAIN ROUTING PAGE)
-├── requirements.txt             (✅ DEPENDENCIES)
-├── .gitignore                   (secrets.toml excluded from Git)
-├── README.md                    (comprehensive documentation)
-└── SETUP_GUIDE.py              (setup checklist + quick reference)
-```
-
-### 2. ✅ **requirements.txt**
-```
-streamlit==1.28.1
-pandas==2.1.3
-plotly==5.18.0
-pyodbc==4.0.39
-python-dotenv==1.0.0
-```
-
-### 3. ✅ **Database Layer (utils/db.py)**
-Production-grade database wrapper with:
-- **Connection Management**: `@st.cache_resource` singleton for pyodbc
-- **SELECT Queries**: `run_query(sql, params)` → returns pandas DataFrame
-- **DML Transactions**: `execute_transaction(sql, params, return_output_params)`
-- **Helper Functions**: `get_active_tenants()`, `get_tenant_name(id)`
-- **Security**: Parameterized SQL (prevents injection)
-- **Error Handling**: Try/except blocks with logging
-
-### 4. ✅ **Main Routing Page (app.py)**
-Complete entry point with:
-- **Session State Initialization**: `logged_in_tenant_id`, `logged_in_tenant_name`
-- **Sidebar Login Flow**: Dropdown to select tenant → Login button
-- **Page Navigation**: Auto-discovered pages in `pages/` folder
-- **Dashboard**: Displays metrics when logged in
-- **Error Handling**: Graceful prompts when not authenticated
-
-### 5. ✅ **Financials Page (pages/1_💸_Financials.py)**
-Full CRUD implementation with 3 tabs:
-
-#### **Tab 1: 📊 Balances Dashboard**
-- **READ Operation**: `SELECT * FROM dbo.vw_App_Ledger_ActiveBalances`
-- **Visualization**: Plotly bar chart + pandas DataFrame table
-- **Metrics Shown**: Current balance, pending debts, lifetime payments
-
-#### **Tab 2: ➕ Add New House Expense**
-- **CREATE Operation**: `EXEC dbo.usp_CreateHouseholdExpense`
-- **Form Fields**: Amount, Description, Split Policy, Category, Notes
-- **Validation**: Amount $0.01-$10,000, description required
-- **Output**: Confirmation with generated Expense_ID
-
-#### **Tab 3: 💳 Payments & Deletions**
-**Column 1 - Payment Processing**
-- **UPDATE Operation**: `EXEC dbo.usp_ProcessTenantPayment`
-- **Form Fields**: Amount, Type, Notes, Payment Date
-- **Output**: Confirmation with updated balance returned
-
-**Column 2 - Expense Deletion (Audited)**
-- **DELETE Operation**: `DELETE FROM dbo.EXPENSE WHERE Expense_ID = ?`
-- **Audit Trail**: Trigger `trg_AuditFinancialChanges` logs deletion automatically
-- **Fields**: Select expense, reason for deletion
-- **Safety**: User-friendly confirmation
+**Audit scope:** 10 technical debt items identified in pre-deployment review  
+**Pre-completed by team:** Docker healthcheck (curl retained), connection string encryption  
+**Delivered in this engagement:** 8 remaining items across 3 phases  
 
 ---
 
-## 🚀 QUICK START (5 STEPS)
+## Phase 1 — Financial State & Concurrency (Critical Fixes) ✅
 
-1. **Install dependencies:**
-   ```bash
-   cd streamlit_app
-   pip install -r requirements.txt
-   ```
+### 1.1 Race Condition in Settlements → `usp_SettlePeerDebt`
+**File:** `CoHabitant_psm_script.sql` (SP 4)
 
-2. **Configure database secrets:**
-   ```bash
-   cp .streamlit/secrets.toml.template .streamlit/secrets.toml
-   # Edit secrets.toml with your SQL Server credentials
-   ```
+Settlement math moved entirely out of Streamlit and into a transactional stored procedure with:
+- `UPDLOCK, ROWLOCK` hints on both TENANT rows to serialize concurrent settlements
+- Real-time debt recomputation from `EXPENSE_SHARE` (not stale UI values)
+- Net-direction detection (automatically determines who-pays-whom)
+- Max-amount guard (`THROW 51014` if settlement > outstanding balance)
+- Same-property validation (`THROW 51012`)
+- Self-settlement guard (`THROW 51011`)
+- `SYSTEM_ERROR_LOG` CATCH block
 
-3. **Run the application:**
-   ```bash
-   streamlit run app.py
-   ```
-
-4. **Login:** Select your tenant from sidebar dropdown and click "🔓 Log In"
-
-5. **Navigate:** Click "💸 Financials" page in sidebar
-
----
-
-## 🎯 FEATURES IMPLEMENTED
-
-### ✅ Session State Management (Requirement)
-- Each user logs in with dropdown: "Kevin Malone (ID: 11)"
-- All CRUD operations use `st.session_state.logged_in_tenant_id`
-- Session persists across page navigation
-- No cross-user access (data isolation)
-
-### ✅ Modular Multi-Page Setup (Requirement)
-- Pages auto-discovered by Streamlit in `pages/` folder
-- Easy to add: `pages/2_🧹_Chores.py`, `pages/3_🗳️_House_Voting.py`, etc.
-- Each page has `check_authenticated()` guard
-- All use shared `utils/db.py` database layer
-
-### ✅ Database Layer with ACID Guarantees (Requirement)
-- `@st.cache_resource` for connection pooling
-- All transactions wrapped in `BEGIN TRAN` / `COMMIT TRAN` / `ROLLBACK TRAN`
-- Stored procedures handle error cases with TRY...CATCH
-- Parameterized SQL prevents injection
-
-### ✅ Full CRUD in Financials Page (Requirement)
-- **CREATE**: Add expense (calls `usp_CreateHouseholdExpense`)
-- **READ**: View balances (queries `vw_App_Ledger_ActiveBalances`)
-- **UPDATE**: Process payments (calls `usp_ProcessTenantPayment`)
-- **DELETE**: Remove expense (audited by trigger)
-
----
-
-## 📊 Database Integration Summary
-
+**Streamlit integration:** `1_💸_Financials.py` → `render_settle_up_view()` now calls:
+```sql
+EXEC dbo.usp_SettlePeerDebt @CallerTenantID=?, @CounterpartyTenantID=?, @SettleAmount=?, @Note=?
 ```
-Frontend (Streamlit)
-      ↓
-utils/db.py (Database Layer)
-      ↓
-PyODBC (Connection)
-      ↓
-SQL Server (CoHabitant Database)
-      ├── Views:      vw_App_Ledger_ActiveBalances, vw_App_Chore_Leaderboard, etc.
-      ├── Procedures: usp_CreateHouseholdExpense, usp_ProcessTenantPayment, usp_CastProposalVote
-      ├── Triggers:   trg_AuditFinancialChanges (logs deletions)
-      ├── Indexes:    idx_Expense_Date_Tenant, idx_ExpenseShare_OwedBy, etc.
-      └── Tables:     TENANT, EXPENSE, EXPENSE_SHARE, PAYMENT, VOTE, etc.
+All SP-level THROW error codes (51012–51014) are surfaced as user-friendly `st.error()` messages.
+
+### 1.2 Expense-Share Lifecycle → Pending → Paid
+**File:** `CoHabitant_psm_script.sql` (SP 4, Step 3)
+
+Inside `usp_SettlePeerDebt`, a FIFO cursor walks `EXPENSE_SHARE` rows ordered by `Share_ID ASC` and flips `Status` from `'Pending'` to `'Paid'` until the settlement amount is consumed. Partial shares are left as `'Pending'` (conservative — no partial status).
+
+### 1.3 Centralized Soft-Delete → `usp_SoftDeleteExpense`
+**File:** `CoHabitant_psm_script.sql` (SP 5)
+
+The ad-hoc inline SQL from `delete_expense_form` was replaced with a proper SP:
+- Ownership guard (only the payer can deactivate)
+- Balance reversal for each debtor + payer
+- `EXPENSE_SHARE.Is_Active = 0` flip
+- `EXPENSE.Is_Active = 0` flip (captured by temporal history)
+- `SYSTEM_ERROR_LOG` CATCH block
+
+**Streamlit integration:** `1_💸_Financials.py` → `delete_expense_form()` now calls:
+```sql
+EXEC dbo.usp_SoftDeleteExpense @ExpenseID=?, @CallerTenantID=?
 ```
 
 ---
 
-## 🔐 Security Architecture
+## Phase 2 — Streamlit Logic & Refactoring ✅
 
-| Aspect | Implementation |
-|--------|---|
-| **Credentials** | `.streamlit/secrets.toml` (gitignored) |
-| **SQL Injection** | Parameterized queries with `?` placeholders |
-| **Session Security** | Only `logged_in_tenant_id` stored (integer) |
-| **Data Access** | All queries scoped to logged-in user |
-| **Audit Trail** | Automatic logging via triggers + application logs |
-| **Error Messages** | User-friendly (frontend), detailed (logs) |
+### 2.1 AppState Migration
+**Files:** `app.py`, `1_💸_Financials.py`, `2_🧹_Chores.py`, `4_📈_Analytics.py`, `5_🏠_Landlord_Portal.py`, `6_👥_House_Hub.py`, `7_📦_Inventory.py`
+
+All raw `st.session_state["logged_in_..."]` access replaced with `AppState()` from `utils/state.py`. The `auth_gate()` function from `utils/auth.py` enforces authentication and RBAC at the top of every page's `main()`.
+
+**Before:** `tenant_id = int(st.session_state["logged_in_tenant_id"])`  
+**After:** `state = AppState(); tenant_id = state.tenant_id`
+
+### 2.2 Payment Flow Counterparty Fix
+**File:** `1_💸_Financials.py` → `payment_form()`
+
+The peer-to-peer payment form now requires selecting a Payee (counterparty) from the roommate list. Self-payment is no longer possible — the current user is excluded from the payee dropdown. `usp_ProcessTenantPayment` receives the explicit `@PayeeTenantID`.
+
+### 2.3 Landlord Schema Fallback Removal
+**File:** `5_🏠_Landlord_Portal.py`
+
+All try/except fallback patterns that masked column mismatches were removed. SQL now strictly targets the actual schema columns (`State` not `State_Province`, `Zip_Code` not `Postal_Code`, etc.). Uses `AppState()` and `auth_gate("Landlord")`.
 
 ---
 
-## 📈 What's Next (Easy to Implement)
+## Phase 3 — Advanced Capabilities ✅
 
-Create new pages by copying the template:
+### 3.1 Temporal Time Travel
+**File:** `4_📈_Analytics.py` → new "🕰️ Time Travel" tab
+
+Uses SQL Server's system-versioned temporal tables (`FOR SYSTEM_TIME AS OF`) to let users view the exact state of all financial records at any past point in time.
+
+**UI components:**
+- Date picker (defaults to yesterday) + time picker (defaults to 23:59:59)
+- "Query Ledger at This Point in Time" button
+- Three data sections: Expenses, Expense Shares, Payments
+- Each section shows active vs soft-deleted counts, status breakdowns, and full data tables
+- Summary callout confirming the temporal query was successful
+
+**SQL queries (3 total):**
+```sql
+SELECT ... FROM dbo.EXPENSE        FOR SYSTEM_TIME AS OF ? ...
+SELECT ... FROM dbo.EXPENSE_SHARE  FOR SYSTEM_TIME AS OF ? ...
+SELECT ... FROM dbo.PAYMENT        FOR SYSTEM_TIME AS OF ? ...
+```
+All scoped to the logged-in user's property roommates.
+
+### 3.2 Gemini Circuit Breaker
+**File:** `1_💸_Financials.py` → `_call_gemini_with_backoff()`
+
+The receipt-scanning AI call now has two layers of protection:
+
+**Hard Timeout (per attempt):**
+Each Gemini API call runs in a `daemon=True` thread with `thread.join(timeout=15.0)`. If the thread doesn't finish in 15 seconds, it's abandoned and the attempt counts as a failure.
+
+**Circuit Breaker (`_GeminiCircuitBreaker` class):**
+
+| State | Behavior |
+|-------|----------|
+| **CLOSED** | Requests flow normally. Consecutive failure counter resets on success. |
+| **OPEN** | After 3 consecutive failures, all calls fail-fast with `RuntimeError` for 60s. |
+| **HALF_OPEN** | After cooldown, one probe request is allowed. Success → CLOSED, failure → OPEN. |
+
+The breaker is a module-level singleton (thread-safe via `threading.Lock`), shared across all Streamlit sessions in the same server process. Configuration constants:
 
 ```python
-# pages/2_🧹_Chores.py
-import streamlit as st
-from utils.db import run_query
-
-st.set_page_config(page_title="🧹 Chores")
-
-def check_authenticated():
-    if st.session_state.get("logged_in_tenant_id") is None:
-        st.warning("Please log in!")
-        st.stop()
-
-check_authenticated()
-st.title("🧹 Chores & Tasks")
-
-# Load chore data
-df = run_query("SELECT * FROM dbo.vw_App_Chore_Leaderboard")
-st.dataframe(df)
-
-# Add forms for:
-# - Assign chore: EXEC dbo.usp_AssignChore (create this SP)
-# - Mark complete: UPDATE dbo.CHORE_ASSIGNMENT
-# - Add proof: Upload image
+_CIRCUIT_FAILURE_THRESHOLD = 3       # consecutive failures to trip
+_CIRCUIT_COOLDOWN_SECONDS  = 60.0    # seconds before half-open probe
+_GEMINI_CALL_TIMEOUT       = 15.0    # per-call hard timeout
 ```
 
-Streamlit will auto-discover and add it to the sidebar!
+---
+
+## Files Modified
+
+| File | Phase | Changes |
+|------|-------|---------|
+| `CoHabitant_psm_script.sql` | 1 | Added `usp_SettlePeerDebt`, `usp_SoftDeleteExpense` |
+| `1_💸_Financials.py` | 1, 2, 3 | SP calls, AppState, payee fix, circuit breaker |
+| `2_🧹_Chores.py` | 2 | AppState + auth_gate migration |
+| `4_📈_Analytics.py` | 2, 3 | AppState migration, temporal time-travel tab |
+| `5_🏠_Landlord_Portal.py` | 2 | Schema fallback removal, AppState migration |
+| `6_👥_House_Hub.py` | 2 | AppState + auth_gate migration |
+| `7_📦_Inventory.py` | 2 | AppState + auth_gate migration |
+| `app.py` | 2 | AppState migration for login/logout flow |
+| `utils/state.py` | 2 | New file — `AppState` class |
+| `utils/auth.py` | 2 | New file — `auth_gate()` middleware |
 
 ---
 
-## 🧪 Testing Checklist
+## Architecture After Hardening
 
-- [ ] Database connection verified (run validation script in README)
-- [ ] secrets.toml created with correct credentials
-- [ ] `pip install -r requirements.txt` successful
-- [ ] `streamlit run app.py` launches without errors
-- [ ] Sidebar dropdown shows all tenants
-- [ ] Can log in and see session state update
-- [ ] Can navigate to 💸 Financials page
-- [ ] Can view balance chart + table
-- [ ] Can create a test expense (check database)
-- [ ] Can process a test payment
-- [ ] Can delete an expense (check audit log)
-- [ ] Logout works correctly
-
----
-
-## 📚 Documentation Provided
-
-| Document | Purpose |
-|---|---|
-| **README.md** | Full setup + deployment guide |
-| **SETUP_GUIDE.py** | Interactive setup checklist + quick reference |
-| **Code Comments** | Every function documented with docstrings |
-| **Error Messages** | User-friendly prompts in Streamlit |
-| **Logs** | Application logs in terminal for debugging |
-
----
-
-## 🚢 Production Readiness
-
-### ✅ Ready for:
-- Academic submission (Phase 5)
-- Local development
-- Team collaboration
-- Portfolio demonstration
-
-### 🔜 Needs Before Azure Deployment:
-- Externalize `secrets.toml` → Azure Key Vault
-- Add environment-specific configs
-- Implement multi-user authentication (vs. simulation)
-- Add request rate limiting
-- Set up CI/CD pipeline
+```
+Streamlit UI
+  ├── AppState (utils/state.py)     ← centralized session management
+  ├── auth_gate (utils/auth.py)     ← RBAC middleware
+  └── utils/db.py                   ← connection pool + query layer
+        ↓
+  SQL Server (CoHabitant)
+  ├── Stored Procedures
+  │   ├── usp_SettlePeerDebt        ← UPDLOCK, FIFO share marking
+  │   ├── usp_SoftDeleteExpense     ← balance reversal + audit
+  │   ├── usp_CreateHouseholdExpense
+  │   ├── usp_ProcessTenantPayment
+  │   └── usp_CastProposalVote
+  ├── Temporal Tables
+  │   ├── EXPENSE + EXPENSE_History
+  │   ├── EXPENSE_SHARE + EXPENSE_SHARE_History
+  │   └── PAYMENT + PAYMENT_History
+  ├── Views
+  │   ├── vw_App_Ledger_ActiveBalances
+  │   ├── vw_App_Chore_Leaderboard
+  │   └── vw_App_Utility_TimeSeries
+  └── SYSTEM_ERROR_LOG              ← all SP failures logged here
+```
 
 ---
 
-## 📞 Support
-
-**Problem: "Connection failed"**
-- Check: Is SQL Server running?
-- Check: secrets.toml has correct server name?
-- Test: Run validation script in README.md
-
-**Problem: "No tenants found"**
-- Verify: CoHabitant_inserts.sql was executed
-- Verify: Database schema exists
-
-**Problem: Page not showing**
-- Ensure: Page file is in `pages/` folder
-- Ensure: Filename starts with number (e.g., `1_`, `2_`)
-- Restart: Streamlit (`Ctrl+C` → `streamlit run app.py`)
-
----
-
-## ✨ Summary
-
-**You now have:**
-
-1. ✅ A **production-grade Streamlit Web Application** with modular architecture
-2. ✅ A **robust database abstraction layer** (utils/db.py)
-3. ✅ **Session state management** for multi-user support
-4. ✅ **Full CRUD operations** on the Financials module
-5. ✅ **Complete documentation** for setup, deployment, and maintenance
-6. ✅ **Error handling & logging** for debugging
-7. ✅ **Security best practices** (parameterized SQL, secrets management, data isolation)
-8. ✅ **Scalable architecture** ready for additional pages (Chores, Voting, Analytics)
-
-**All code is production-ready, well-documented, and follows Python best practices.**
-
----
-
-**Build status:** ✅ **COMPLETE**  
-**Deployment readiness:** 🟢 **LOCAL/ACADEMIC READY** | 🟡 **AZURE NEEDS SECRET MGMT**
-
-🏠 **Ready to cohabit!** 🚀
+**Build status:** ✅ **ALL 3 PHASES COMPLETE**  
+**Audit items resolved:** 10/10 (2 pre-completed + 8 delivered)

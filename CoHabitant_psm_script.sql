@@ -4,12 +4,10 @@ GO
 /* =========================================================================================
    PART 1: VIEWS (The DataFrames for Streamlit & Power BI)
    
-   Phase 2 Update: All views now filter on Is_Active = 1 to exclude soft-deleted
-   records from dashboards and reports.
+   All views filter on Is_Active = 1 to exclude soft-deleted records.
 ========================================================================================= */
 
 -- View 1: Financial Ledger Dashboard
--- Feeds the main "Who owes what" bar chart in the UI.
 CREATE OR ALTER VIEW dbo.vw_App_Ledger_ActiveBalances AS
 SELECT 
     t.Tenant_ID,
@@ -27,7 +25,6 @@ GROUP BY t.Tenant_ID, p.First_Name, p.Last_Name, t.Current_Net_Balance;
 GO
 
 -- View 2: Chore Leaderboard & Gamification
--- Feeds the "Housemate Responsibility" dashboard.
 CREATE OR ALTER VIEW dbo.vw_App_Chore_Leaderboard AS
 SELECT 
     t.Tenant_ID,
@@ -44,7 +41,6 @@ GROUP BY t.Tenant_ID, p.First_Name, t.Tenant_Responsibility_Score;
 GO
 
 -- View 3: Utility Time-Series
--- Flattens utility data perfectly for Streamlit line charts (st.line_chart) or Power BI trends.
 CREATE OR ALTER VIEW dbo.vw_App_Utility_TimeSeries AS
 SELECT 
     ur.Reading_Date,
@@ -155,9 +151,7 @@ GO
 /* =========================================================================================
    PART 3: STORED PROCEDURES (The Backend API Layer)
    
-   Phase 2 Update: All CATCH blocks now INSERT into dbo.SYSTEM_ERROR_LOG
-   before re-throwing the error. This creates a persistent server-side audit
-   trail of every failed transaction, independent of the Python layer.
+   All CATCH blocks INSERT into dbo.SYSTEM_ERROR_LOG before re-throwing.
 ========================================================================================= */
 
 -- SP 1: Create an Expense and Auto-Split it
@@ -204,18 +198,14 @@ BEGIN
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK TRAN;
-
-        -- Log to SYSTEM_ERROR_LOG before re-raising
         INSERT INTO dbo.SYSTEM_ERROR_LOG (
             Error_Message, Error_Severity, Error_State,
             Error_Procedure, Error_Line, Tenant_ID, Additional_Context
-        )
-        VALUES (
+        ) VALUES (
             ERROR_MESSAGE(), ERROR_SEVERITY(), ERROR_STATE(),
             ERROR_PROCEDURE(), ERROR_LINE(), @PaidByTenantID,
             CONCAT('Amount=', @Amount, ' SplitPolicy=', @SplitPolicy)
         );
-
         DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
         RAISERROR(@ErrMsg, 16, 1);
         RETURN -1; 
@@ -256,17 +246,14 @@ BEGIN
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK TRAN;
-
         INSERT INTO dbo.SYSTEM_ERROR_LOG (
             Error_Message, Error_Severity, Error_State,
             Error_Procedure, Error_Line, Tenant_ID, Additional_Context
-        )
-        VALUES (
+        ) VALUES (
             ERROR_MESSAGE(), ERROR_SEVERITY(), ERROR_STATE(),
             ERROR_PROCEDURE(), ERROR_LINE(), @PayerTenantID,
             CONCAT('Amount=', @Amount, ' PayeeTenantID=', ISNULL(@PayeeTenantID, -1))
         );
-
         THROW;
     END CATCH
 END;
@@ -336,17 +323,338 @@ BEGIN
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK TRAN;
-
         INSERT INTO dbo.SYSTEM_ERROR_LOG (
             Error_Message, Error_Severity, Error_State,
             Error_Procedure, Error_Line, Tenant_ID, Additional_Context
-        )
-        VALUES (
+        ) VALUES (
             ERROR_MESSAGE(), ERROR_SEVERITY(), ERROR_STATE(),
             ERROR_PROCEDURE(), ERROR_LINE(), @TenantID,
             CONCAT('ProposalID=', @ProposalID, ' IsApproved=', @IsApproved)
         );
+        THROW;
+    END CATCH
+END;
+GO
 
+
+/* =========================================================================================
+   SP 4: Settle Peer Debt (Audit Finding — Race Condition Fix)
+   
+   Moves ALL settlement math out of the Streamlit UI and into a strict
+   transactional SP with UPDLOCK hints to prevent two users from
+   over-settling the same debt simultaneously.
+   
+   Steps (atomic):
+     1. Validate both tenants are on the same active property
+     2. Acquire UPDLOCK on both TENANT rows (serializes concurrent settles)
+     3. Compute real-time outstanding debt between the pair from EXPENSE_SHARE
+     4. Validate settlement amount does not exceed the outstanding balance
+     5. Insert PAYMENT record (type = 'Settlement')
+     6. Update both TENANT.Current_Net_Balance
+     7. Mark EXPENSE_SHARE rows from 'Pending' → 'Paid' (FIFO by Share_ID)
+        up to the settlement amount
+========================================================================================= */
+
+CREATE OR ALTER PROCEDURE dbo.usp_SettlePeerDebt
+    @CallerTenantID INT,          -- The logged-in user initiating the settlement
+    @CounterpartyTenantID INT,    -- The other roommate
+    @SettleAmount DECIMAL(10,2),  -- How much to settle
+    @Note VARCHAR(255) = NULL
+AS
+BEGIN
+    SET XACT_ABORT ON;
+    BEGIN TRY
+        BEGIN TRAN;
+
+        -- ── Guard: positive amount ──
+        IF @SettleAmount IS NULL OR @SettleAmount <= 0
+            THROW 51010, 'Settlement amount must be greater than zero.', 1;
+
+        IF @CallerTenantID = @CounterpartyTenantID
+            THROW 51011, 'Cannot settle a debt with yourself.', 1;
+
+        -- ── Guard: same property ──
+        DECLARE @CallerPropID INT, @CounterPropID INT;
+
+        SELECT TOP 1 @CallerPropID = la.Property_ID
+        FROM dbo.LEASE_AGREEMENT la
+        WHERE la.Tenant_ID = @CallerTenantID AND la.Is_Active = 1
+          AND CAST(GETDATE() AS DATE) BETWEEN la.Start_Date AND la.End_Date
+        ORDER BY la.End_Date DESC;
+
+        SELECT TOP 1 @CounterPropID = la.Property_ID
+        FROM dbo.LEASE_AGREEMENT la
+        WHERE la.Tenant_ID = @CounterpartyTenantID AND la.Is_Active = 1
+          AND CAST(GETDATE() AS DATE) BETWEEN la.Start_Date AND la.End_Date
+        ORDER BY la.End_Date DESC;
+
+        IF @CallerPropID IS NULL OR @CounterPropID IS NULL OR @CallerPropID <> @CounterPropID
+            THROW 51012, 'Both tenants must be on the same active property to settle.', 1;
+
+        -- ── Acquire UPDLOCK on both tenant rows in deterministic order ──
+        -- Re-audit fix (Finding #3): The original code locked rows in
+        -- caller/counterparty parameter order.  Two concurrent sessions
+        -- settling each other (A→B and B→A) would acquire locks in
+        -- opposite order, causing a deadlock.  Fix: always lock the
+        -- lower Tenant_ID first, guaranteeing a consistent global lock
+        -- order that breaks the circular-wait condition.
+        DECLARE @LowID INT  = CASE WHEN @CallerTenantID < @CounterpartyTenantID
+                                   THEN @CallerTenantID ELSE @CounterpartyTenantID END;
+        DECLARE @HighID INT = CASE WHEN @CallerTenantID < @CounterpartyTenantID
+                                   THEN @CounterpartyTenantID ELSE @CallerTenantID END;
+
+        DECLARE @CallerBalance DECIMAL(10,2), @CounterBalance DECIMAL(10,2);
+        DECLARE @LowBalance DECIMAL(10,2), @HighBalance DECIMAL(10,2);
+
+        -- Lock #1: lower Tenant_ID
+        SELECT @LowBalance = Current_Net_Balance
+        FROM dbo.TENANT WITH (UPDLOCK, ROWLOCK)
+        WHERE Tenant_ID = @LowID;
+
+        -- Lock #2: higher Tenant_ID (never reversed by any concurrent session)
+        SELECT @HighBalance = Current_Net_Balance
+        FROM dbo.TENANT WITH (UPDLOCK, ROWLOCK)
+        WHERE Tenant_ID = @HighID;
+
+        -- Map back to caller/counterparty variables for downstream logic
+        SET @CallerBalance  = CASE WHEN @CallerTenantID = @LowID THEN @LowBalance ELSE @HighBalance END;
+        SET @CounterBalance = CASE WHEN @CounterpartyTenantID = @LowID THEN @LowBalance ELSE @HighBalance END;
+
+        -- ── Compute real-time pending debt between the pair ──
+        -- CallerOwesCounter: sum of pending shares where caller owes the counterparty
+        DECLARE @CallerOwesCounter DECIMAL(10,2) = ISNULL((
+            SELECT SUM(es.Owed_Amount)
+            FROM dbo.EXPENSE_SHARE es
+            JOIN dbo.EXPENSE e ON e.Expense_ID = es.Expense_ID
+            WHERE es.Owed_By_Tenant_ID = @CallerTenantID
+              AND e.Paid_By_Tenant_ID = @CounterpartyTenantID
+              AND es.Status = 'Pending' AND es.Is_Active = 1 AND e.Is_Active = 1
+        ), 0);
+
+        -- CounterOwesCaller: sum of pending shares where counterparty owes the caller
+        DECLARE @CounterOwesCaller DECIMAL(10,2) = ISNULL((
+            SELECT SUM(es.Owed_Amount)
+            FROM dbo.EXPENSE_SHARE es
+            JOIN dbo.EXPENSE e ON e.Expense_ID = es.Expense_ID
+            WHERE es.Owed_By_Tenant_ID = @CounterpartyTenantID
+              AND e.Paid_By_Tenant_ID = @CallerTenantID
+              AND es.Status = 'Pending' AND es.Is_Active = 1 AND e.Is_Active = 1
+        ), 0);
+
+        -- Determine net direction: who actually pays whom
+        DECLARE @PayerTenantID INT, @PayeeTenantID INT, @MaxSettleable DECIMAL(10,2);
+
+        IF @CallerOwesCounter >= @CounterOwesCaller
+        BEGIN
+            -- Caller is the net debtor → Caller pays Counterparty
+            SET @PayerTenantID  = @CallerTenantID;
+            SET @PayeeTenantID  = @CounterpartyTenantID;
+            SET @MaxSettleable  = @CallerOwesCounter - @CounterOwesCaller;
+        END
+        ELSE
+        BEGIN
+            -- Counterparty is the net debtor → Counterparty pays Caller
+            SET @PayerTenantID  = @CounterpartyTenantID;
+            SET @PayeeTenantID  = @CallerTenantID;
+            SET @MaxSettleable  = @CounterOwesCaller - @CallerOwesCounter;
+        END
+
+        IF @MaxSettleable <= 0
+            THROW 51013, 'No outstanding debt exists between these tenants.', 1;
+
+        IF @SettleAmount > @MaxSettleable
+            THROW 51014, 'Settlement amount exceeds outstanding balance between these tenants.', 1;
+
+        -- ── Step 1: Insert settlement payment record ──
+        INSERT INTO dbo.PAYMENT (Payer_Tenant_ID, Payee_Tenant_ID, Amount, Payment_Type, Payment_Date, Note)
+        VALUES (@PayerTenantID, @PayeeTenantID, @SettleAmount, 'Settlement',
+                CAST(GETDATE() AS DATE), ISNULL(@Note, 'Peer debt settlement'));
+
+        -- ── Step 2: Update both TENANT balances ──
+        UPDATE dbo.TENANT
+        SET Current_Net_Balance = ISNULL(Current_Net_Balance, 0) + @SettleAmount
+        WHERE Tenant_ID = @PayerTenantID;
+
+        UPDATE dbo.TENANT
+        SET Current_Net_Balance = ISNULL(Current_Net_Balance, 0) - @SettleAmount
+        WHERE Tenant_ID = @PayeeTenantID;
+
+        -- ── Step 3: Mark EXPENSE_SHARE rows Pending → Paid (FIFO by Share_ID) ──
+        -- Walk through the payer's pending shares owed to the payee in order,
+        -- flipping them to 'Paid' until we've consumed the settlement amount.
+        DECLARE @Remaining DECIMAL(10,2) = @SettleAmount;
+        DECLARE @CurShareID INT, @CurOwed DECIMAL(10,2);
+
+        DECLARE share_cursor CURSOR LOCAL FAST_FORWARD FOR
+            SELECT es.Share_ID, es.Owed_Amount
+            FROM dbo.EXPENSE_SHARE es
+            JOIN dbo.EXPENSE e ON e.Expense_ID = es.Expense_ID
+            WHERE es.Owed_By_Tenant_ID = @PayerTenantID
+              AND e.Paid_By_Tenant_ID = @PayeeTenantID
+              AND es.Status = 'Pending'
+              AND es.Is_Active = 1 AND e.Is_Active = 1
+            ORDER BY es.Share_ID ASC;  -- FIFO
+
+        OPEN share_cursor;
+        FETCH NEXT FROM share_cursor INTO @CurShareID, @CurOwed;
+
+        WHILE @@FETCH_STATUS = 0 AND @Remaining > 0
+        BEGIN
+            IF @CurOwed <= @Remaining
+            BEGIN
+                -- Fully covers this share → mark Paid
+                UPDATE dbo.EXPENSE_SHARE SET Status = 'Paid' WHERE Share_ID = @CurShareID;
+                SET @Remaining = @Remaining - @CurOwed;
+            END
+            ELSE
+            BEGIN
+                -- Partial: settlement doesn't fully cover this share.
+                -- Reduce the Owed_Amount by the remaining settlement so future
+                -- debt calculations see the true residual, not the original face
+                -- value.  Status stays 'Pending' (only fully covered shares flip
+                -- to 'Paid').  Without this reduction, the next settlement call
+                -- would recompute outstanding debt from the unreduced Owed_Amount
+                -- and allow over-settlement.
+                UPDATE dbo.EXPENSE_SHARE
+                SET Owed_Amount = Owed_Amount - @Remaining
+                WHERE Share_ID = @CurShareID;
+
+                SET @Remaining = 0;
+            END
+
+            FETCH NEXT FROM share_cursor INTO @CurShareID, @CurOwed;
+        END
+
+        CLOSE share_cursor;
+        DEALLOCATE share_cursor;
+
+        COMMIT TRAN;
+
+        -- Return the payer/payee info for the UI
+        SELECT @PayerTenantID AS PayerTenantID,
+               @PayeeTenantID AS PayeeTenantID,
+               @SettleAmount AS SettledAmount,
+               @MaxSettleable AS MaxWas;
+
+        RETURN 0;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRAN;
+        INSERT INTO dbo.SYSTEM_ERROR_LOG (
+            Error_Message, Error_Severity, Error_State,
+            Error_Procedure, Error_Line, Tenant_ID, Additional_Context
+        ) VALUES (
+            ERROR_MESSAGE(), ERROR_SEVERITY(), ERROR_STATE(),
+            ERROR_PROCEDURE(), ERROR_LINE(), @CallerTenantID,
+            CONCAT('CounterpartyID=', @CounterpartyTenantID, ' Amount=', @SettleAmount)
+        );
+        THROW;
+    END CATCH
+END;
+GO
+
+
+/* =========================================================================================
+   SP 5: Soft-Delete Expense (Audit Finding — Centralize Financial Mutations)
+   
+   Moves the ad-hoc soft-delete SQL out of the Streamlit UI into a proper SP
+   protected by SYSTEM_ERROR_LOG CATCH blocks.
+   
+   Re-audit fix (Finding #2): The original version refunded ALL active shares
+   regardless of Status.  If part of an expense was already settled (Status =
+   'Paid'), the debtor had already transferred money via a settlement PAYMENT.
+   Refunding the full Owed_Amount of a Paid share would double-reverse the
+   economics.  The fix:
+     a) Guard: block deletion if any share is already 'Paid' (you cannot
+        retroactively undo an expense that roommates have already settled
+        without also reversing the settlement — a much more complex op).
+     b) Defense-in-depth: refund queries now filter on Status = 'Pending'
+        so even if the guard is bypassed, only unsettled amounts move.
+   
+   Steps (atomic):
+     1. Ownership guard
+     2. Settlement-safety guard (block if any share is Paid)
+     3. Refund each PENDING debtor's balance
+     4. Debit the payer's balance (only Pending share sum)
+     5. Soft-delete EXPENSE_SHARE rows (Is_Active = 0)
+     6. Soft-delete EXPENSE row (Is_Active = 0, captured by temporal history)
+========================================================================================= */
+
+CREATE OR ALTER PROCEDURE dbo.usp_SoftDeleteExpense
+    @ExpenseID INT,
+    @CallerTenantID INT
+AS
+BEGIN
+    SET XACT_ABORT ON;
+    BEGIN TRY
+        BEGIN TRAN;
+
+        -- ── Guard 1: expense must exist, be active, and belong to the caller ──
+        IF NOT EXISTS (
+            SELECT 1 FROM dbo.EXPENSE
+            WHERE Expense_ID = @ExpenseID
+              AND Paid_By_Tenant_ID = @CallerTenantID
+              AND Is_Active = 1
+        )
+            THROW 51020, 'Unauthorized, already deleted, or Expense not found.', 1;
+
+        -- ── Guard 2: block if any share has already been settled ──
+        -- Reversing a settled share would require also reversing the
+        -- corresponding settlement PAYMENT, which is a separate operation.
+        -- Blocking here is the safe, conservative choice.
+        IF EXISTS (
+            SELECT 1 FROM dbo.EXPENSE_SHARE
+            WHERE Expense_ID = @ExpenseID
+              AND Is_Active = 1
+              AND Status = 'Paid'
+        )
+            THROW 51021, 'Cannot delete an expense that has settled shares. Reverse the settlement first.', 1;
+
+        -- ── Step 1: Refund each PENDING debtor (reverse their balance deduction) ──
+        -- Defense-in-depth: only Pending shares are refunded even though
+        -- Guard 2 should have blocked any Paid shares above.
+        UPDATE t
+        SET t.Current_Net_Balance = ISNULL(t.Current_Net_Balance, 0) + es.Owed_Amount
+        FROM dbo.TENANT t
+        INNER JOIN dbo.EXPENSE_SHARE es ON t.Tenant_ID = es.Owed_By_Tenant_ID
+        WHERE es.Expense_ID = @ExpenseID
+          AND es.Is_Active = 1
+          AND es.Status = 'Pending';
+
+        -- ── Step 2: Debit the payer (reverse only the Pending share sum) ──
+        UPDATE dbo.TENANT
+        SET Current_Net_Balance = ISNULL(Current_Net_Balance, 0) - ISNULL((
+            SELECT SUM(es2.Owed_Amount)
+            FROM dbo.EXPENSE_SHARE es2
+            WHERE es2.Expense_ID = @ExpenseID
+              AND es2.Is_Active = 1
+              AND es2.Status = 'Pending'
+        ), 0)
+        WHERE Tenant_ID = @CallerTenantID;
+
+        -- ── Step 3: Soft-delete share records ──
+        UPDATE dbo.EXPENSE_SHARE
+        SET Is_Active = 0
+        WHERE Expense_ID = @ExpenseID;
+
+        -- ── Step 4: Soft-delete expense (temporal history captures this) ──
+        UPDATE dbo.EXPENSE
+        SET Is_Active = 0
+        WHERE Expense_ID = @ExpenseID;
+
+        COMMIT TRAN;
+        RETURN 0;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRAN;
+        INSERT INTO dbo.SYSTEM_ERROR_LOG (
+            Error_Message, Error_Severity, Error_State,
+            Error_Procedure, Error_Line, Tenant_ID, Additional_Context
+        ) VALUES (
+            ERROR_MESSAGE(), ERROR_SEVERITY(), ERROR_STATE(),
+            ERROR_PROCEDURE(), ERROR_LINE(), @CallerTenantID,
+            CONCAT('ExpenseID=', @ExpenseID)
+        );
         THROW;
     END CATCH
 END;
@@ -356,15 +664,7 @@ GO
 /* =========================================================================================
    PART 4: DML TRIGGER (Audit — Legacy)
    
-   Phase 2 Note: The EXPENSE, EXPENSE_SHARE, and PAYMENT tables are now
-   system-versioned temporal tables. SQL Server automatically maintains
-   full row-level history in the paired *_History tables. As a result,
-   this manual trigger is retained only as a secondary audit trail and
-   for backward compatibility with existing reporting.
-   
-   Important: With soft deletes, expenses are no longer physically DELETEd.
-   The "DELETE" branch below fires only if someone bypasses the app and
-   runs a raw DELETE, acting as a safety net.
+   Retained as a secondary audit trail alongside temporal tables.
 ========================================================================================= */
 
 CREATE OR ALTER TRIGGER dbo.trg_AuditFinancialChanges

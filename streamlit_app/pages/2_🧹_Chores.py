@@ -10,7 +10,8 @@ import plotly.express as px
 import streamlit as st
 
 from utils.auth import auth_gate
-from utils.db import execute_transaction, run_query, get_roommate_ids
+from utils.state import AppState
+from utils.db import execute_transaction, run_query, get_roommate_ids, get_tenant_name
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +83,7 @@ def render_leaderboard(leaderboard_df: pd.DataFrame):
     st.dataframe(leaderboard_df, use_container_width=True, hide_index=True)
 
 
-def render_mark_complete_form(my_chores_df: pd.DataFrame):
+def render_mark_complete_form(my_chores_df: pd.DataFrame, tenant_id: int):
     st.subheader("Mark Chore Complete")
     st.caption("Select a pending assignment and submit to mark it complete.")
     if my_chores_df.empty:
@@ -102,9 +103,9 @@ def render_mark_complete_form(my_chores_df: pd.DataFrame):
             WHERE Assignment_ID = ? AND Assigned_Tenant_ID = ?
             """
             try:
-                execute_transaction(update_sql, [assignment_id, st.session_state.get("logged_in_tenant_id")])
+                execute_transaction(update_sql, [assignment_id, tenant_id])
                 st.success(f"Assignment {assignment_id} marked as completed.")
-                logger.info("Chore assignment %s completed by tenant %s", assignment_id, st.session_state.get("logged_in_tenant_id"))
+                logger.info("Chore assignment %s completed by tenant %s", assignment_id, tenant_id)
                 st.rerun()
             except Exception as exc:
                 st.error(f"Unable to update chore status: {exc}")
@@ -124,7 +125,6 @@ def render_assign_chore_form(tenant_id: int):
             st.info("No other roommates available to assign to.")
             return
         with st.form("assign_chore_form", clear_on_submit=True):
-            from utils.db import get_tenant_name
             chore_sql = "SELECT Chore_ID, Task_Name, Frequency FROM dbo.CHORE_DEFINITION WHERE Is_Active = 1 ORDER BY Task_Name"
             chores_df = run_query(chore_sql)
             if chores_df.empty:
@@ -156,7 +156,9 @@ def render_assign_chore_form(tenant_id: int):
 
 def main():
     auth_gate("Tenant")
-    tenant_id = int(st.session_state["logged_in_tenant_id"])
+    state = AppState()
+    tenant_id = state.tenant_id
+
     st.title("🧹 Chores")
     st.caption("Track household contributions and close out pending tasks.")
     try:
@@ -179,7 +181,7 @@ def main():
         try:
             my_chores_df = load_my_pending_chores(tenant_id)
             st.dataframe(my_chores_df, use_container_width=True, hide_index=True)
-            render_mark_complete_form(my_chores_df)
+            render_mark_complete_form(my_chores_df, tenant_id)
         except Exception as exc:
             st.error(f"Failed to load your chores: {exc}")
     with tab3:

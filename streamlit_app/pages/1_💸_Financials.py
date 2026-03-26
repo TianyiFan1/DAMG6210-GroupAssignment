@@ -6,7 +6,21 @@ Features:
 - View active tenant balances and debts
 - Create new shared expenses with auto-splitting
 - Process peer-to-peer payments
-- Soft-delete expenses with balance reversal (Phase 2 upgrade)
+- Settle peer debts via usp_SettlePeerDebt (UPDLOCK-serialized, FIFO share marking)
+- Soft-delete expenses via usp_SoftDeleteExpense (centralized, error-logged)
+
+Audit Hardening (Phase 1):
+  - render_settle_up_view: calls usp_SettlePeerDebt instead of inline SQL.
+    All math, validation, locking, and EXPENSE_SHARE lifecycle (Pending→Paid)
+    are now server-side.
+  - delete_expense_form: calls usp_SoftDeleteExpense instead of inline SQL.
+    Balance reversal and Is_Active flip are now protected by SYSTEM_ERROR_LOG.
+
+Phase 3 Upgrade:
+  - Gemini Circuit Breaker: _call_gemini_with_backoff now enforces a hard
+    per-call timeout via threading and a circuit breaker (consecutive failure
+    tracking → open state → cooldown period) so the UI never stalls
+    indefinitely when the Gemini API is degraded.
 """
 
 import streamlit as st
@@ -16,13 +30,15 @@ import logging
 import json
 import io
 import time
-from datetime import date
+import threading
+from datetime import date, datetime, timedelta
 
 from google import genai
 from PIL import Image
 
 from utils.db import execute_transaction, get_roommate_ids, get_tenant_name, run_query
 from utils.auth import auth_gate
+from utils.state import AppState
 from utils.financial_logic import build_expense_transaction_sql_params
 
 logger = logging.getLogger(__name__)
@@ -34,6 +50,86 @@ st.set_page_config(
 )
 
 
+# ─────────────────────────────────────────────────────────
+# Gemini AI Receipt Scanning — with Circuit Breaker (Phase 3)
+# ─────────────────────────────────────────────────────────
+# The circuit breaker prevents the Streamlit UI from stalling
+# indefinitely when the Gemini API is degraded. After a
+# configurable number of consecutive failures the circuit
+# "opens" and all subsequent calls fail-fast for a cooldown
+# period before allowing a single probe request through.
+
+_CIRCUIT_FAILURE_THRESHOLD: int = 3       # consecutive failures to open
+_CIRCUIT_COOLDOWN_SECONDS: float = 60.0   # seconds before half-open probe
+_GEMINI_CALL_TIMEOUT: float = 15.0        # hard per-call timeout (seconds)
+
+
+class _GeminiCircuitBreaker:
+    """Minimal circuit breaker for the Gemini API.
+
+    States:
+        CLOSED   – requests flow normally.
+        OPEN     – all requests fail-fast; transitions to HALF_OPEN after cooldown.
+        HALF_OPEN – one probe request is allowed through; success closes,
+                    failure re-opens.
+    """
+
+    def __init__(self, failure_threshold: int, cooldown_seconds: float) -> None:
+        self._failure_threshold = failure_threshold
+        self._cooldown_seconds = cooldown_seconds
+        self._consecutive_failures: int = 0
+        self._last_failure_time: datetime | None = None
+        self._state: str = "CLOSED"  # CLOSED | OPEN | HALF_OPEN
+        self._lock = threading.Lock()
+
+    @property
+    def state(self) -> str:
+        with self._lock:
+            if self._state == "OPEN" and self._last_failure_time is not None:
+                elapsed = (datetime.utcnow() - self._last_failure_time).total_seconds()
+                if elapsed >= self._cooldown_seconds:
+                    self._state = "HALF_OPEN"
+            return self._state
+
+    def record_success(self) -> None:
+        with self._lock:
+            self._consecutive_failures = 0
+            self._state = "CLOSED"
+
+    def record_failure(self) -> None:
+        with self._lock:
+            self._consecutive_failures += 1
+            self._last_failure_time = datetime.utcnow()
+            if self._consecutive_failures >= self._failure_threshold:
+                self._state = "OPEN"
+
+    def allow_request(self) -> bool:
+        """Return True if a request should be attempted."""
+        current = self.state
+        if current == "CLOSED":
+            return True
+        if current == "HALF_OPEN":
+            # Allow one probe request
+            return True
+        # OPEN
+        return False
+
+    def seconds_until_probe(self) -> float:
+        """Seconds remaining before the circuit transitions to HALF_OPEN."""
+        with self._lock:
+            if self._state != "OPEN" or self._last_failure_time is None:
+                return 0.0
+            elapsed = (datetime.utcnow() - self._last_failure_time).total_seconds()
+            return max(0.0, self._cooldown_seconds - elapsed)
+
+
+# Module-level singleton
+_gemini_breaker = _GeminiCircuitBreaker(
+    failure_threshold=_CIRCUIT_FAILURE_THRESHOLD,
+    cooldown_seconds=_CIRCUIT_COOLDOWN_SECONDS,
+)
+
+
 def _get_gemini_client():
     """Lazy init Gemini client; keeps module import safe if secrets are absent."""
     if "gemini" not in st.secrets or "api_key" not in st.secrets["gemini"]:
@@ -41,28 +137,94 @@ def _get_gemini_client():
     return genai.Client(api_key=st.secrets["gemini"]["api_key"])
 
 
-def _call_gemini_with_backoff(img: Image.Image, prompt: str, max_attempts: int = 3) -> str:
-    """Call Gemini with small exponential backoff for transient failures."""
-    last_exc = None
+def _call_gemini_single(img: Image.Image, prompt: str, result_box: dict) -> None:
+    """Target for the timeout thread — writes to *result_box* in place."""
+    try:
+        client = _get_gemini_client()
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[img, prompt],
+        )
+        result_box["text"] = response.text
+    except Exception as exc:
+        result_box["error"] = exc
+
+
+def _call_gemini_with_backoff(
+    img: Image.Image,
+    prompt: str,
+    max_attempts: int = 3,
+    timeout: float = _GEMINI_CALL_TIMEOUT,
+) -> str:
+    """Call Gemini with exponential backoff, hard timeout, and circuit breaker.
+
+    Phase 3 hardening:
+      - Each individual attempt is capped at *timeout* seconds using a
+        daemon thread.  If the API does not respond in time the attempt
+        is treated as a failure (the daemon thread is abandoned — it will
+        be reaped when the Streamlit process restarts).
+      - A module-level circuit breaker tracks consecutive failures across
+        all users. Once the failure threshold is reached the circuit opens
+        and all subsequent calls fail-fast for a cooldown period, avoiding
+        pile-up when the API is degraded.
+    """
+    # ── Circuit breaker check ──
+    if not _gemini_breaker.allow_request():
+        wait = _gemini_breaker.seconds_until_probe()
+        raise RuntimeError(
+            f"Gemini circuit breaker is OPEN after {_CIRCUIT_FAILURE_THRESHOLD} "
+            f"consecutive failures. Retry in {wait:.0f}s."
+        )
+
+    last_exc: Exception | None = None
     for attempt in range(1, max_attempts + 1):
-        try:
-            client = _get_gemini_client()
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=[img, prompt],
+        result_box: dict = {}
+        worker = threading.Thread(
+            target=_call_gemini_single,
+            args=(img, prompt, result_box),
+            daemon=True,
+        )
+        worker.start()
+        worker.join(timeout=timeout)
+
+        if worker.is_alive():
+            # Thread did not finish in time — treat as timeout
+            last_exc = TimeoutError(
+                f"Gemini call timed out after {timeout}s (attempt {attempt}/{max_attempts})"
             )
-            return response.text
-        except Exception as exc:
-            last_exc = exc
-            logger.warning("Gemini attempt %s/%s failed: %s", attempt, max_attempts, exc)
+            logger.warning("Gemini attempt %s/%s timed out after %ss", attempt, max_attempts, timeout)
+            _gemini_breaker.record_failure()
             if attempt < max_attempts:
                 time.sleep(2 ** (attempt - 1))
+            continue
+
+        if "error" in result_box:
+            last_exc = result_box["error"]
+            logger.warning("Gemini attempt %s/%s failed: %s", attempt, max_attempts, last_exc)
+            _gemini_breaker.record_failure()
+            if attempt < max_attempts:
+                time.sleep(2 ** (attempt - 1))
+            continue
+
+        # Success
+        _gemini_breaker.record_success()
+        return result_box["text"]
+
     raise RuntimeError(f"Gemini call failed after {max_attempts} attempts: {last_exc}")
 
 
 def parse_receipt_with_ai(image_bytes: bytes) -> dict:
     """Parse receipt image using Gemini and return normalized JSON fields."""
-    prompt = "Analyze this store receipt. Return ONLY a valid JSON object with exactly these 6 keys: 'amount' (float, total cost), 'description' (string, Merchant name + brief summary like 'Target Shared Supplies'), 'category' (string, choose exactly one: 'Groceries', 'Utilities', 'Rent', 'Cleaning', or 'Other'), 'notes' (string, list the top 3 most expensive items on the receipt), 'split_policy' (string. Return 'Equal' if all items are shared household goods. Return 'Custom' if you detect personal items like alcohol, protein powder, or clothing), and 'date_incurred' (string, YYYY-MM-DD format, extract the date printed on the receipt). Do not use markdown blocks."
+    prompt = (
+        "Analyze this store receipt. Return ONLY a valid JSON object with exactly these 6 keys: "
+        "'amount' (float, total cost), 'description' (string, Merchant name + brief summary like "
+        "'Target Shared Supplies'), 'category' (string, choose exactly one: 'Groceries', 'Utilities', "
+        "'Rent', 'Cleaning', or 'Other'), 'notes' (string, list the top 3 most expensive items on "
+        "the receipt), 'split_policy' (string. Return 'Equal' if all items are shared household goods. "
+        "Return 'Custom' if you detect personal items like alcohol, protein powder, or clothing), and "
+        "'date_incurred' (string, YYYY-MM-DD format, extract the date printed on the receipt). "
+        "Do not use markdown blocks."
+    )
     try:
         img = Image.open(io.BytesIO(image_bytes))
         response_text = _call_gemini_with_backoff(img, prompt)
@@ -74,6 +236,10 @@ def parse_receipt_with_ai(image_bytes: bytes) -> dict:
         return {}
 
 
+# ─────────────────────────────────────────────────────────
+# Balance Dashboard (READ)
+# ─────────────────────────────────────────────────────────
+
 def load_active_balances(tenant_id: int) -> pd.DataFrame:
     """Load tenant balances using the vw_App_Ledger_ActiveBalances view."""
     roommate_ids = get_roommate_ids(tenant_id)
@@ -81,15 +247,9 @@ def load_active_balances(tenant_id: int) -> pd.DataFrame:
         return pd.DataFrame(
             columns=["Tenant_ID", "Full_Name", "Current_Net_Balance", "Total_Pending_Debts", "Lifetime_Paid"]
         )
-
     placeholders = ", ".join("?" for _ in roommate_ids)
     sql = f"""
-    SELECT 
-        Tenant_ID,
-        Full_Name,
-        Current_Net_Balance,
-        Total_Pending_Debts,
-        Lifetime_Paid
+    SELECT Tenant_ID, Full_Name, Current_Net_Balance, Total_Pending_Debts, Lifetime_Paid
     FROM dbo.vw_App_Ledger_ActiveBalances
     WHERE Tenant_ID IN ({placeholders})
     ORDER BY Current_Net_Balance DESC
@@ -136,7 +296,11 @@ def render_balance_table(df: pd.DataFrame):
     st.dataframe(display_df, width="stretch", hide_index=True)
 
 
-def expense_form():
+# ─────────────────────────────────────────────────────────
+# Create Expense (CREATE)
+# ─────────────────────────────────────────────────────────
+
+def expense_form(tenant_id: int):
     """Render form to create a new household expense."""
     st.subheader("➕ Add New House Expense")
     st.caption("Create a shared expense, then review updated balances in the Balances tab.")
@@ -207,7 +371,7 @@ def expense_form():
     date_incurred = st.session_state.expense_date_input
     notes = str(st.session_state.expense_notes_input)
 
-    payer_tenant_id = int(st.session_state.logged_in_tenant_id)
+    payer_tenant_id = tenant_id
     roommates = get_roommate_ids(payer_tenant_id)
     if not roommates:
         roommates = [payer_tenant_id]
@@ -268,26 +432,51 @@ def expense_form():
             execute_transaction(final_sql, params)
             st.session_state.expense_form_reset_flag = True
             st.success(f"✅ Expense created successfully!\nAmount: ${amount:.2f} saved for {date_incurred}")
-            logger.info("Expense created by Tenant %s: amount=%s category=%s notes=%s", st.session_state.logged_in_tenant_id, amount, category, notes)
+            logger.info("Expense created by Tenant %s: amount=%s category=%s notes=%s",
+                        tenant_id, amount, category, notes)
             time.sleep(2.5)
             st.rerun()
         except Exception as e:
             st.error(f"❌ Failed to create expense: {e}")
-            logger.error(f"Expense creation failed: {e}")
+            logger.error("Expense creation failed: %s", e)
 
 
-def payment_form():
-    """Render form to process a peer-to-peer payment."""
+# ─────────────────────────────────────────────────────────
+# Payment Form (CREATE)
+# ─────────────────────────────────────────────────────────
+
+def payment_form(tenant_id: int):
+    """Render form to process a peer-to-peer payment with required counterparty."""
     st.subheader("💳 Pay a Roommate")
+
+    # Load roommates for payee selection (counterparty is required)
+    roommates = get_roommate_ids(tenant_id)
+    other_roommates = [rid for rid in roommates if rid != tenant_id]
+
+    if not other_roommates:
+        st.info("ℹ️ No roommates found to pay. You need housemates on the same lease.")
+        return
+
+    roommate_names = {rid: get_tenant_name(rid) for rid in other_roommates}
+
     with st.form("payment_form", clear_on_submit=True):
         col1, col2 = st.columns(2)
         with col1:
             amount = st.number_input("Payment Amount ($)", min_value=0.01, max_value=10000.00, step=0.01, format="%.2f")
         with col2:
             payment_type = st.selectbox("Payment Type", ["Expense Settlement", "Rent", "Utilities", "Other"])
+
+        payee_id = st.selectbox(
+            "Pay To (Roommate)",
+            options=other_roommates,
+            format_func=lambda rid: roommate_names.get(rid, f"Tenant {rid}"),
+            help="Select the roommate you are paying.",
+        )
+
         notes = st.text_input("Payment Notes / Reference")
         payment_date = st.date_input("Payment Date", value=date.today())
         submitted = st.form_submit_button("✅ Process Payment")
+
         if submitted:
             if not notes:
                 st.error("❌ Please enter payment notes")
@@ -295,38 +484,40 @@ def payment_form():
             try:
                 sql = """
                 DECLARE @NewBalance DECIMAL(10,2);
-                EXEC dbo.usp_ProcessTenantPayment ?, ?, ?, @NewBalance OUTPUT;
+                EXEC dbo.usp_ProcessTenantPayment ?, ?, ?, @NewBalance OUTPUT, ?;
                 SELECT @NewBalance AS NewBalance;
                 """
-                params = [st.session_state.logged_in_tenant_id, amount, f"[{payment_type}] {notes} | Date: {payment_date}"]
+                params = [tenant_id, amount,
+                          f"[{payment_type}] {notes} | Date: {payment_date}",
+                          payee_id]
                 execute_transaction(sql, params)
-                st.success(f"✅ Payment processed successfully!\nAmount: ${amount:.2f}")
-                logger.info(f"Payment of ${amount} processed by Tenant {st.session_state.logged_in_tenant_id}")
+                st.success(
+                    f"✅ Payment of ${amount:.2f} to {roommate_names[payee_id]} processed!"
+                )
+                logger.info("Payment of $%s from Tenant %s to Tenant %s",
+                            amount, tenant_id, payee_id)
                 st.rerun()
             except Exception as e:
                 st.error(f"❌ Failed to process payment: {e}")
-                logger.error(f"Payment processing failed: {e}")
+                logger.error("Payment processing failed: %s", e)
 
 
-def delete_expense_form():
+# ─────────────────────────────────────────────────────────
+# Delete Expense — now via usp_SoftDeleteExpense
+# (Audit Finding: Centralize Financial Mutations)
+# ─────────────────────────────────────────────────────────
+
+def delete_expense_form(tenant_id: int):
     """
-    Render form to soft-delete an expense with full balance reversal.
-    
-    Phase 2 Upgrade: Uses soft deletes (UPDATE Is_Active = 0) instead of
-    hard DELETEs. The temporal tables automatically capture the state change,
-    and the record remains queryable via FOR SYSTEM_TIME for auditing.
-    
-    Transaction steps (all atomic):
-      1. Ownership guard (only the payer can deactivate)
-      2. Refund each debtor's balance
-      3. Debit the payer's balance
-      4. Soft-delete EXPENSE_SHARE rows (Is_Active = 0)
-      5. Soft-delete EXPENSE row (Is_Active = 0, captured by temporal history)
+    Render form to soft-delete an expense via the centralized SP.
+
+    All balance reversal, ownership guards, Is_Active flips, and error
+    logging are handled server-side by dbo.usp_SoftDeleteExpense.
+    The temporal history table automatically captures the state change.
     """
     st.subheader("🗑️ Delete Expense (Audited)")
 
     try:
-        # Only show active expenses
         sql = """
         SELECT TOP 20
             e.Expense_ID,
@@ -341,7 +532,7 @@ def delete_expense_form():
           AND e.Is_Active = 1
         ORDER BY e.Date_Incurred DESC
         """
-        expenses_df = run_query(sql, [st.session_state.logged_in_tenant_id])
+        expenses_df = run_query(sql, [tenant_id])
 
         if expenses_df.empty:
             st.info("ℹ️ No active expenses found that you created.")
@@ -353,7 +544,8 @@ def delete_expense_form():
                 for _, row in expenses_df.iterrows()
             }
             selected_expense = st.selectbox("Select expense to delete:", options=list(expense_options.keys()))
-            reason = st.text_area("Reason for deletion:", max_chars=255, placeholder="e.g., 'Duplicate entry', 'Wrong amount', etc.")
+            reason = st.text_area("Reason for deletion:", max_chars=255,
+                                  placeholder="e.g., 'Duplicate entry', 'Wrong amount', etc.")
             deleted = st.form_submit_button("🗑️ Delete Expense", type="secondary")
 
             if deleted:
@@ -364,82 +556,37 @@ def delete_expense_form():
                 expense_id = expense_options[selected_expense]
 
                 try:
-                    # ──────────────────────────────────────────────────────
-                    # SOFT DELETE: Balance reversal + Is_Active = 0
-                    # ──────────────────────────────────────────────────────
-                    # Reads happen BEFORE writes. The Is_Active flip is
-                    # automatically captured by the temporal history table.
-                    # ──────────────────────────────────────────────────────
-                    sql_soft_delete = """
-                    IF EXISTS (SELECT 1 FROM dbo.EXPENSE WHERE Expense_ID = ? AND Paid_By_Tenant_ID = ? AND Is_Active = 1)
-                    BEGIN
-                        -- Step 1: Refund each debtor (reverse the balance deduction)
-                        UPDATE t
-                        SET t.Current_Net_Balance = ISNULL(t.Current_Net_Balance, 0) + es.Owed_Amount
-                        FROM dbo.TENANT t
-                        INNER JOIN dbo.EXPENSE_SHARE es ON t.Tenant_ID = es.Owed_By_Tenant_ID
-                        WHERE es.Expense_ID = ?
-                          AND es.Is_Active = 1;
-
-                        -- Step 2: Debit the payer (reverse the balance credit)
-                        UPDATE dbo.TENANT
-                        SET Current_Net_Balance = ISNULL(Current_Net_Balance, 0) - ISNULL((
-                            SELECT SUM(es2.Owed_Amount)
-                            FROM dbo.EXPENSE_SHARE es2
-                            WHERE es2.Expense_ID = ?
-                              AND es2.Is_Active = 1
-                        ), 0)
-                        WHERE Tenant_ID = ?;
-
-                        -- Step 3: Soft-delete share records
-                        UPDATE dbo.EXPENSE_SHARE
-                        SET Is_Active = 0
-                        WHERE Expense_ID = ?;
-
-                        -- Step 4: Soft-delete expense (temporal history captures this)
-                        UPDATE dbo.EXPENSE
-                        SET Is_Active = 0
-                        WHERE Expense_ID = ?;
-                    END
-                    ELSE
-                    BEGIN
-                        THROW 51000, 'Unauthorized, already deleted, or Expense not found.', 1;
-                    END
-                    """
-
-                    # Parameters map (7 placeholders):
-                    #   ?1 = expense_id     (ownership + active check)
-                    #   ?2 = tenant_id      (ownership check)
-                    #   ?3 = expense_id     (debtor refund JOIN)
-                    #   ?4 = expense_id     (payer debit subquery)
-                    #   ?5 = tenant_id      (payer debit WHERE)
-                    #   ?6 = expense_id     (soft-delete shares)
-                    #   ?7 = expense_id     (soft-delete expense)
-                    execute_transaction(sql_soft_delete, [
-                        expense_id,
-                        st.session_state.logged_in_tenant_id,
-                        expense_id,
-                        expense_id,
-                        st.session_state.logged_in_tenant_id,
-                        expense_id,
-                        expense_id,
-                    ])
-
+                    execute_transaction(
+                        "EXEC dbo.usp_SoftDeleteExpense @ExpenseID = ?, @CallerTenantID = ?",
+                        [expense_id, tenant_id],
+                    )
                     st.success(
                         f"✅ Expense {expense_id} deactivated and balances reversed.\n"
                         f"⚠️ Record preserved in temporal history for audit compliance."
                     )
-                    time.sleep(2.5)
+                    logger.info("Expense %s soft-deleted by Tenant %s. Reason: %s",
+                                expense_id, tenant_id, reason)
+                    time.sleep(2)
                     st.rerun()
-
                 except Exception as e:
-                    st.error(f"❌ Failed to delete expense: {e}")
-                    logger.error(f"Expense soft-deletion failed: {e}")
+                    error_msg = str(e)
+                    if "51021" in error_msg:
+                        st.warning(
+                            "⚠️ This expense has shares that were already settled. "
+                            "You must reverse the settlement first before deleting the expense."
+                        )
+                    else:
+                        st.error(f"❌ Failed to delete expense: {e}")
+                    logger.error("Expense soft-deletion failed: %s", e)
 
     except Exception as e:
         st.error(f"❌ Failed to load expenses: {e}")
-        logger.error(f"Failed to load expenses: {e}")
+        logger.error("Failed to load expenses: %s", e)
 
+
+# ─────────────────────────────────────────────────────────
+# Expense History (READ)
+# ─────────────────────────────────────────────────────────
 
 def load_expense_history(tenant_id: int) -> pd.DataFrame:
     """Load all active expenses where the user is involved (paid or owes)."""
@@ -468,7 +615,7 @@ def load_expense_history(tenant_id: int) -> pd.DataFrame:
 def load_settlement_history(tenant_id: int) -> pd.DataFrame:
     """Load all active settlements (payments) where the user is involved."""
     sql = """
-    SELECT 
+    SELECT
         pat.Payment_ID,
         pat.Amount,
         pat.Payment_Date,
@@ -477,7 +624,7 @@ def load_settlement_history(tenant_id: int) -> pd.DataFrame:
         recv_p.First_Name + ' ' + recv_p.Last_Name AS Payee_Name,
         pat.Payee_Tenant_ID,
         pat.Note,
-        CASE 
+        CASE
             WHEN pat.Payer_Tenant_ID = ? THEN 'You paid'
             WHEN pat.Payee_Tenant_ID = ? THEN 'You received'
             ELSE 'Other'
@@ -520,7 +667,7 @@ def render_expense_history(tenant_id: int):
 
             with st.expander(f"{role_emoji} {date_str} | ${total:.2f} - {payer} ({policy})", expanded=False):
                 sql_shares = """
-                SELECT 
+                SELECT
                     t.Tenant_ID,
                     p.First_Name + ' ' + p.Last_Name AS Tenant_Name,
                     es.Owed_Amount,
@@ -611,11 +758,21 @@ def render_expense_history(tenant_id: int):
 
     except Exception as e:
         st.error(f"❌ Failed to load expense history: {e}")
-        logger.error(f"Failed to load expense history: {e}")
+        logger.error("Failed to load expense history: %s", e)
 
+
+# ─────────────────────────────────────────────────────────
+# Settle Up — now via usp_SettlePeerDebt
+# (Audit Finding: Race Condition Fix + Expense-Share Lifecycle)
+# ─────────────────────────────────────────────────────────
 
 def load_settle_up_data(tenant_id: int) -> pd.DataFrame:
-    """Calculate pairwise balances between the current user and each roommate."""
+    """Calculate pairwise balances between the current user and each roommate.
+
+    This is a READ-ONLY query for display purposes. The actual settlement
+    transaction (with locking, validation, and FIFO share marking) is
+    handled entirely by usp_SettlePeerDebt on the server.
+    """
     sql = """
     WITH MyProperty AS (
         SELECT TOP 1 la.Property_ID
@@ -688,12 +845,26 @@ def load_settle_up_data(tenant_id: int) -> pd.DataFrame:
 
 
 def render_settle_up_view(tenant_id: int):
-    """Render settle up interface showing who owes whom."""
+    """Render settle up interface.
+
+    The display table is computed client-side for read performance.
+    The actual settlement transaction delegates entirely to
+    dbo.usp_SettlePeerDebt, which handles:
+      - Property-scope validation
+      - UPDLOCK serialization (prevents concurrent over-settlement)
+      - Real-time debt recomputation from EXPENSE_SHARE
+      - Max-amount guard
+      - PAYMENT record insertion
+      - TENANT balance updates (both sides)
+      - FIFO EXPENSE_SHARE lifecycle (Pending → Paid)
+      - SYSTEM_ERROR_LOG on failure
+    """
     try:
         settle_df = load_settle_up_data(tenant_id)
         if settle_df.empty:
             st.success("✅ All settled! No outstanding debts.")
             return
+
         st.markdown("### 🤝 Settle Up - Who Owes Whom")
         st.caption("Positive balance = you are owed money | Negative balance = you owe money")
         display_df = settle_df.copy()
@@ -708,76 +879,91 @@ def render_settle_up_view(tenant_id: int):
 
         st.divider()
         st.markdown("#### 💳 Settle a Debt")
+
         roommates = get_roommate_ids(tenant_id)
         roommate_names = {rid: get_tenant_name(rid) for rid in roommates if rid != tenant_id}
-        if roommate_names:
-            with st.form("settle_up_form"):
-                col1, col2 = st.columns(2)
-                with col1:
-                    selected_roommate = st.selectbox("Mark as settled with:", options=list(roommate_names.keys()), format_func=lambda rid: roommate_names[rid])
-                with col2:
-                    settle_amount = st.number_input("Amount settled ($)", min_value=0.01, max_value=10000.00, step=0.01)
-                notes = st.text_input("Settlement notes (e.g., 'Venmo'd on 3/24')", max_chars=100)
-                submitted = st.form_submit_button("✅ Record Settlement")
-                if submitted:
-                    try:
-                        selected_row = settle_df[settle_df['Tenant_ID'] == selected_roommate]
-                        if selected_row.empty:
-                            st.error("❌ Could not find selected roommate balance.")
-                            return
-                        you_owe = float(selected_row.iloc[0]['You_Owe_Them'])
-                        they_owe = float(selected_row.iloc[0]['They_Owe_You'])
-                        if you_owe <= 0 and they_owe <= 0:
-                            st.info("ℹ️ No outstanding amount to settle with this roommate.")
-                            return
-                        if they_owe >= you_owe:
-                            payer_tenant_id = selected_roommate
-                            payee_tenant_id = tenant_id
-                            max_settle = they_owe
-                            direction_text = f"{roommate_names[selected_roommate]} paid you"
-                        else:
-                            payer_tenant_id = tenant_id
-                            payee_tenant_id = selected_roommate
-                            max_settle = you_owe
-                            direction_text = f"You paid {roommate_names[selected_roommate]}"
-                        if settle_amount > max_settle:
-                            st.error(f"❌ Settlement exceeds outstanding amount (${max_settle:.2f}).")
-                            return
-                        sql_payment = """
-                        BEGIN TRANSACTION;
-                        INSERT INTO dbo.PAYMENT (Payer_Tenant_ID, Payee_Tenant_ID, Amount, Payment_Type, Payment_Date, Note)
-                        VALUES (?, ?, ?, 'Settlement', CAST(GETDATE() AS DATE), ?);
-                        UPDATE dbo.TENANT SET Current_Net_Balance = ISNULL(Current_Net_Balance, 0) + ? WHERE Tenant_ID = ?;
-                        UPDATE dbo.TENANT SET Current_Net_Balance = ISNULL(Current_Net_Balance, 0) - ? WHERE Tenant_ID = ?;
-                        COMMIT TRANSACTION;
-                        """
-                        execute_transaction(sql_payment, [
-                            payer_tenant_id, payee_tenant_id, settle_amount, notes or "Settled debt",
-                            settle_amount, payer_tenant_id, settle_amount, payee_tenant_id
-                        ])
-                        st.success(f"✅ Settlement recorded: ${settle_amount:.2f}. {direction_text}.")
-                        time.sleep(2)
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ Failed to record settlement: {e}")
-                        logger.error(f"Settlement failed: {e}")
-        else:
+
+        if not roommate_names:
             st.info("ℹ️ No roommates to settle with.")
+            return
+
+        with st.form("settle_up_form"):
+            col1, col2 = st.columns(2)
+            with col1:
+                selected_roommate = st.selectbox(
+                    "Settle with:",
+                    options=list(roommate_names.keys()),
+                    format_func=lambda rid: roommate_names[rid],
+                )
+            with col2:
+                settle_amount = st.number_input(
+                    "Amount to settle ($)",
+                    min_value=0.01,
+                    max_value=10000.00,
+                    step=0.01,
+                )
+            notes = st.text_input("Settlement notes (e.g., 'Venmo'd on 3/24')", max_chars=100)
+            submitted = st.form_submit_button("✅ Record Settlement")
+
+            if submitted:
+                try:
+                    # ── Delegate entirely to the server-side SP ──
+                    # The SP determines who-pays-whom, validates the max
+                    # settleable amount, acquires UPDLOCK on both TENANT
+                    # rows, inserts the PAYMENT, updates balances, and
+                    # marks EXPENSE_SHARE rows Pending→Paid via FIFO cursor.
+                    execute_transaction(
+                        "EXEC dbo.usp_SettlePeerDebt "
+                        "@CallerTenantID = ?, @CounterpartyTenantID = ?, "
+                        "@SettleAmount = ?, @Note = ?",
+                        [tenant_id, selected_roommate, settle_amount,
+                         notes or "Settled debt"],
+                    )
+                    st.success(
+                        f"✅ Settlement of ${settle_amount:.2f} recorded with "
+                        f"{roommate_names[selected_roommate]}."
+                    )
+                    time.sleep(2)
+                    st.rerun()
+                except Exception as e:
+                    error_msg = str(e)
+                    # Surface SP-level THROW messages cleanly
+                    if "51013" in error_msg:
+                        st.info("ℹ️ No outstanding debt exists with this roommate.")
+                    elif "51014" in error_msg:
+                        st.error("❌ Settlement amount exceeds the outstanding balance.")
+                    elif "51012" in error_msg:
+                        st.error("❌ Both tenants must be on the same property.")
+                    else:
+                        st.error(f"❌ Failed to record settlement: {e}")
+                    logger.error("Settlement failed: %s", e)
+
     except Exception as e:
         st.error(f"❌ Failed to load settle up view: {e}")
-        logger.error(f"Failed to load settle up: {e}")
+        logger.error("Failed to load settle up: %s", e)
 
+
+# ─────────────────────────────────────────────────────────
+# Main Page Entry Point
+# ─────────────────────────────────────────────────────────
 
 def main():
     """Main financials page."""
     auth_gate("Tenant")
+    state = AppState()
+    tenant_id = state.tenant_id
+
     st.title("💸 Financials Dashboard")
-    st.markdown(f"**Logged in as:** {st.session_state.logged_in_tenant_name}")
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Balances", "➕ Add Expense", "📋 History", "🤝 Settle Up", "💳 Payments"])
+    st.markdown(f"**Logged in as:** {state.tenant_name}")
+
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "📊 Balances", "➕ Add Expense", "📋 History", "🤝 Settle Up", "💳 Payments"
+    ])
+
     with tab1:
         st.markdown("### Active Tenant Balances")
         try:
-            balances_df = load_active_balances(int(st.session_state.logged_in_tenant_id))
+            balances_df = load_active_balances(tenant_id)
             if balances_df.empty:
                 st.warning("⚠️ No balance data available")
             else:
@@ -786,19 +972,23 @@ def main():
                 render_balance_table(balances_df)
         except Exception as e:
             st.error(f"❌ Failed to load balances: {e}")
-            logger.error(f"Failed to load active balances: {e}")
+            logger.error("Failed to load active balances: %s", e)
+
     with tab2:
-        expense_form()
+        expense_form(tenant_id)
+
     with tab3:
-        render_expense_history(int(st.session_state.logged_in_tenant_id))
+        render_expense_history(tenant_id)
+
     with tab4:
-        render_settle_up_view(int(st.session_state.logged_in_tenant_id))
+        render_settle_up_view(tenant_id)
+
     with tab5:
         col1, col2 = st.columns(2)
         with col1:
-            payment_form()
+            payment_form(tenant_id)
         with col2:
-            delete_expense_form()
+            delete_expense_form(tenant_id)
 
 
 if __name__ == "__main__":

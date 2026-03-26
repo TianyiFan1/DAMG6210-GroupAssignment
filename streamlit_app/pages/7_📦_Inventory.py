@@ -8,6 +8,7 @@ import pandas as pd
 import streamlit as st
 
 from utils.auth import auth_gate
+from utils.state import AppState
 from utils.db import run_query, execute_transaction, get_tenant_property_id, get_roommate_ids
 
 logger = logging.getLogger(__name__)
@@ -137,7 +138,9 @@ def tab_update_quantity(tenant_id: int):
 
 def main():
     auth_gate("Tenant")
-    tenant_id = int(st.session_state.get("logged_in_user_id"))
+    state = AppState()
+    tenant_id = state.user_id
+
     st.title("📦 Inventory")
     st.caption("Manage shared and personal items.")
     tab1, tab2, tab3, tab4 = st.tabs(["📋 All Items", "➕ Add Shared Item", "🔒 Add Personal Item", "📝 Update Quantity"])
