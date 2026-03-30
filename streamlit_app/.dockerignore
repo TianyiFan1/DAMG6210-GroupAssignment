@@ -16,6 +16,9 @@ tests/
 *.svg
 *.pbix
 *.pdf
-.streamlit/secrets.toml
+# .streamlit/secrets.toml — NOT excluded; picked up by COPY . .
+# It's gitignored so it won't be in CI builds (which is fine —
+# CI only checks the health endpoint, not DB connectivity).
+# For local Azure builds: copy secrets.azure.toml → secrets.toml first.
 .DS_Store
 Thumbs.db
