@@ -133,3 +133,52 @@ jobs:
           sleep 10
           curl -f http://localhost:8501/_stcore/health || exit 1
           docker stop cohabitant-ci
+# ── Continuous Deployment to Azure ──
+  deploy:
+    name: Deploy to Azure
+    runs-on: ubuntu-latest
+    needs: docker-build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create secrets.toml from GitHub Secrets
+        run: |
+          mkdir -p streamlit_app/.streamlit
+          cat > streamlit_app/.streamlit/secrets.toml << 'SECRETS_EOF'
+          [database]
+          server = "cohabitant-server-2026.database.windows.net"
+          database = "CoHabitantDB"
+          driver = "{ODBC Driver 17 for SQL Server}"
+          trusted_connection = "no"
+          username = "cohabadmin"
+          password = "${{ secrets.AZURE_SQL_PASSWORD }}"
+
+          [gemini]
+          api_key = "${{ secrets.GEMINI_API_KEY }}"
+          SECRETS_EOF
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        run: |
+          docker build \
+            -t deep25lelouch/cohabitant:latest \
+            -t deep25lelouch/cohabitant:${{ github.sha }} \
+            -f streamlit_app/Dockerfile \
+            streamlit_app/
+          docker push deep25lelouch/cohabitant:latest
+          docker push deep25lelouch/cohabitant:${{ github.sha }}
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: cohabitant
+          publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE }}
+          images: deep25lelouch/cohabitant:latest
