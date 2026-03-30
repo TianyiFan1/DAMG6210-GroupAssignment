@@ -97,6 +97,9 @@ def _build_connection_string(cfg: Dict[str, Any]) -> str:
         f"DATABASE={database};"
         f"UID={username};"
         f"PWD={password};"
+        "Encrypt=yes;"
+        "TrustServerCertificate=no;"
+        "Connection Timeout=30;"
     )
 
 

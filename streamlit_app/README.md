@@ -36,7 +36,7 @@ A production-grade, multi-tenant property management SaaS application built with
 │  │ 18 Tables    │  │ 3 Temporal   │  │ SYSTEM_ERROR_LOG     │ │
 │  │ (Is_Active)  │  │ History Tbls │  │ EXPENSE_AUDIT_LOG    │ │
 │  ├──────────────┤  ├──────────────┤  ├──────────────────────┤ │
-│  │ 3 Views      │  │ 3 SPs       │  │ 3 UDFs               │ │
+│  │ 3 Views      │  │ 5 SPs       │  │ 3 UDFs               │ │
 │  │ 5 Indexes    │  │ 1 Trigger   │  │ AES-256 Encryption   │ │
 │  └──────────────┘  └──────────────┘  └──────────────────────┘ │
 └────────────────────────────────────────────────────────────────┘
@@ -52,10 +52,12 @@ DAMG6210-GroupAssignment/
 │   └── workflows/
 │       └── main.yml                 # CI: pytest + Docker build (Python 3.11/3.12)
 ├── CoHabitant_schema.sql            # DDL: 18 tables + Is_Active + 3 temporal tables
-├── CoHabitant_psm_script.sql        # Views, UDFs, SPs, audit trigger
+├── CoHabitant_psm_script.sql        # Views, UDFs, 5 SPs, audit trigger
 ├── CoHabitant_indexes_script.sql    # 5 filtered indexes (WHERE Is_Active = 1)
 ├── CoHabitant_inserts.sql           # 20 seed records per table
 ├── CoHabitant_encryption_script.sql # AES-256 encryption for PII
+├── azure_deploy/                    # Azure-ready SQL scripts (USE removed)
+│   ├── 01_schema.sql → 05_encryption.sql
 ├── docker-compose.yml               # SQL Server 2022 + Streamlit (local dev)
 │
 ├── streamlit_app/
@@ -284,7 +286,7 @@ state.clear()          # Wipes session + rerun
 All tables have `Is_Active BIT DEFAULT 1`. Deletions flip `Is_Active = 0` instead of removing rows. The 3 financial tables (EXPENSE, EXPENSE_SHARE, PAYMENT) are SQL Server system-versioned temporal tables — every row change is automatically captured in `*_History` tables for point-in-time auditing.
 
 ### Error Logging
-All 3 stored procedures log failures to `dbo.SYSTEM_ERROR_LOG` (error message, severity, procedure name, tenant ID, context) before re-throwing, creating a server-side audit trail independent of the Python layer.
+All 5 stored procedures log failures to `dbo.SYSTEM_ERROR_LOG` (error message, severity, procedure name, tenant ID, context) before re-throwing, creating a server-side audit trail independent of the Python layer.
 
 ---
 
@@ -295,34 +297,49 @@ Always run in this order — each script depends on the previous:
 | # | Script | What it does |
 |---|--------|-------------|
 | 1 | `CoHabitant_schema.sql` | Creates database, 18 tables (Is_Active), 3 temporal tables, SYSTEM_ERROR_LOG, EXPENSE_AUDIT_LOG. Drops and recreates everything (idempotent). |
-| 2 | `CoHabitant_psm_script.sql` | Creates 3 views (Is_Active filtered), 3 UDFs (property-scoped), 3 SPs (with error logging), audit trigger. |
+| 2 | `CoHabitant_psm_script.sql` | Creates 3 views (Is_Active filtered), 3 UDFs (property-scoped), 5 SPs (with error logging + concurrency hardening), audit trigger. |
 | 3 | `CoHabitant_indexes_script.sql` | Creates 5 filtered nonclustered indexes (WHERE Is_Active = 1). |
 | 4 | `CoHabitant_inserts.sql` | Seeds 20 rows per table. Is_Active defaults to 1 automatically. |
 | 5 | `CoHabitant_encryption_script.sql` | AES-256 encryption for landlord PII fields. |
 
 ---
 
-## Azure Deployment
+## Azure Deployment (100% Free Tier)
 
-### 1. Push Docker image to Azure Container Registry
+### Architecture
 
-```bash
-az acr build --registry <your-acr> --image cohabitant:latest ./streamlit_app
+| Component | Service | Tier |
+|-----------|---------|------|
+| Database | Azure SQL Database | Free (Gen5 Serverless, 2 vCores, auto-pause 1hr) |
+| App Hosting | Azure App Service | F1 (Free Linux) |
+| Container Registry | Docker Hub | Free |
+
+### Step 1: Populate Azure SQL
+
+Run the 5 scripts in `azure_deploy/` (01→05) against your Azure SQL Database via VS Code SQL Server extension. These are identical to the root scripts but with `USE CoHabitant;` removed for Azure SQL compatibility.
+
+### Step 2: Build & push Docker image
+
+```powershell
+cd DAMG6210-GroupAssignment
+docker build -t YOUR_DOCKERHUB_USER/cohabitant:latest ./streamlit_app
+docker push YOUR_DOCKERHUB_USER/cohabitant:latest
 ```
 
-### 2. Create Azure Web App from container
+### Step 3: Create Azure App Service (Portal UI)
 
-```bash
-az webapp create \
-  --resource-group <rg> \
-  --plan <plan> \
-  --name cohabitant \
-  --deployment-container-image-name <acr>.azurecr.io/cohabitant:latest
-```
+1. Azure Portal → Create Resource → Web App
+2. Select **Docker Container**, **Linux**, **F1 (Free)** plan
+3. Point to `YOUR_DOCKERHUB_USER/cohabitant:latest`
+4. Set App Setting: `WEBSITES_PORT=8501`
+5. Inject `secrets.toml` content via startup command or App Settings
+6. Enable "Allow Azure services" on the SQL Server firewall
 
-### 3. Configure secrets via App Settings
+### Step 4: Verify
 
-Set `COHABITANT_ENV=production` and configure database credentials through Azure Key Vault or App Settings.
+App URL: `https://YOUR-APP-NAME.azurewebsites.net`
+
+> **Note:** Azure Free SQL auto-pauses after 1 hour of inactivity. First request after pause takes ~60 seconds to wake. The retry logic in `db.py` handles this gracefully.
 
 ---
 
@@ -345,6 +362,9 @@ GitHub Actions (`.github/workflows/main.yml`) runs on every push/PR to `main` or
 
 | Name | Role |
 |------|------|
-| Deep Patel | Lead Developer & Architect |
+| Deep Prajapati | Lead Developer & Architect |
+| Tianyi Fan | Lead Developer & Architect |
+| Ashfaq Ahmed Mohd | Lead Developer & Architect |
+
 
 **Course:** DAMG 6210 — Database Management and Database Design (Northeastern University, Spring 2026)

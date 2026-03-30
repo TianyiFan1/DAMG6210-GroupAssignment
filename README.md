@@ -2,7 +2,7 @@
 
 > **DAMG 6210 — Database Management and Database Design**
 > Northeastern University, Spring 2026
-> Team: Deep Patel, Tianyi Fan, Ashfaq Ahmed Mohd
+> Team: Deep Prajapati, Tianyi Fan, Ashfaq Ahmed Mohd
 
 ## Mission Statement
 
@@ -50,16 +50,45 @@ See [`streamlit_app/README.md`](streamlit_app/README.md) for detailed setup, Doc
 - **Physical Schema:** [`schema-CoHabitant.svg`](schema-CoHabitant.svg)
 - **Power BI Report:** [`visualization_report.pdf`](visualization_report.pdf)
 
+## Architectural Hardening (Pre-Deployment Audit)
+
+A full read-only re-audit identified 4 concurrency and correctness issues, all resolved:
+
+| Severity | Finding | Fix |
+|----------|---------|-----|
+| Critical | Partial settlements left `Owed_Amount` unchanged → over-settlement | SP now reduces `Owed_Amount` by consumed amount on partial coverage |
+| High | Soft-delete refunded already-settled shares (double-reverse) | Guard blocks deletion if any share is `'Paid'`; refund queries filter on `'Pending'` |
+| Medium | UPDLOCK in caller/counterparty order → deadlock on opposite-direction settlements | Deterministic lock ordering by ascending `Tenant_ID` |
+| Low | Voting page bypassed `AppState` | Migrated to `AppState()` + `auth_gate()` |
+
+## Azure Deployment
+
+Production deployment targets 100% Azure Free Tier:
+
+| Component | Service | Tier |
+|-----------|---------|------|
+| Database | Azure SQL Database | Free (Gen5 Serverless, 2 vCores) |
+| App Hosting | Azure App Service | F1 (Free Linux) |
+| Container Registry | Docker Hub | Free |
+
+The `azure_deploy/` folder contains Azure-ready SQL scripts (identical to the root scripts but with `USE CoHabitant;` removed for Azure SQL compatibility).
+
 ## Repository Structure
 
 ```
 DAMG6210-GroupAssignment/
 ├── .github/workflows/main.yml       # CI pipeline
 ├── CoHabitant_schema.sql             # 18 tables + 3 temporal + error log
-├── CoHabitant_psm_script.sql         # Views, UDFs, SPs, trigger
+├── CoHabitant_psm_script.sql         # Views, UDFs, 5 SPs, trigger
 ├── CoHabitant_indexes_script.sql     # 5 filtered indexes
 ├── CoHabitant_inserts.sql            # Seed data
 ├── CoHabitant_encryption_script.sql  # AES-256 PII encryption
+├── azure_deploy/                     # Azure-ready SQL scripts (USE removed)
+│   ├── 01_schema.sql
+│   ├── 02_indexes.sql
+│   ├── 03_psm.sql
+│   ├── 04_inserts.sql
+│   └── 05_encryption.sql
 ├── docker-compose.yml                # Local dev stack
 ├── streamlit_app/                    # Full application (see inner README)
 ├── *.svg / *.md                      # ERD models
