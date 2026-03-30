@@ -1,6 +1,8 @@
 # CoHabitant — Shared-Living Operations Platform
 
-A production-grade, multi-tenant property management SaaS application built with **Python/Streamlit**, **Microsoft SQL Server**, and **Gemini AI**. Features Splitwise-style financial math, a Walled Garden tenant-isolation architecture, system-versioned temporal tables for audit compliance, and a full CI/CD pipeline for Azure deployment.
+**🚀 Live:** [cohabitant-cbdbf8f2chh3a0d5.centralus-01.azurewebsites.net](https://cohabitant-cbdbf8f2chh3a0d5.centralus-01.azurewebsites.net) | **Docker:** [`deep25lelouch/cohabitant:latest`](https://hub.docker.com/r/deep25lelouch/cohabitant)
+
+A production-grade, multi-tenant property management SaaS application built with **Python/Streamlit**, **Microsoft SQL Server**, and **Gemini AI**. Features Splitwise-style financial math, a Walled Garden tenant-isolation architecture, system-versioned temporal tables for audit compliance, and a full CI/CD pipeline. Deployed on Azure Free Tier (App Service F1 + Azure SQL Serverless).
 
 ---
 
@@ -11,6 +13,13 @@ A production-grade, multi-tenant property management SaaS application built with
 │                        GitHub Actions CI                        │
 │  pytest (unit + mock) → syntax check → Docker build → health   │
 └──────────────────────────────┬──────────────────────────────────┘
+                               │ docker push
+                    ┌──────────▼─────────┐
+                    │   Docker Hub       │
+                    │ deep25lelouch/     │
+                    │ cohabitant:latest  │
+                    └──────────┬─────────┘
+                               │ pull
                                │
 ┌──────────────────────────────▼──────────────────────────────────┐
 │                    Streamlit Frontend (app.py)                   │
@@ -304,42 +313,36 @@ Always run in this order — each script depends on the previous:
 
 ---
 
-## Azure Deployment (100% Free Tier)
+## Azure Deployment (100% Free Tier) ✅ Live
 
 ### Architecture
 
-| Component | Service | Tier |
-|-----------|---------|------|
-| Database | Azure SQL Database | Free (Gen5 Serverless, 2 vCores, auto-pause 1hr) |
-| App Hosting | Azure App Service | F1 (Free Linux) |
-| Container Registry | Docker Hub | Free |
+| Component | Service | Status |
+|-----------|---------|--------|
+| Database | Azure SQL (Free Serverless, Gen5, 2 vCores, auto-pause 1hr) | ✅ `cohabitant-server-2026.database.windows.net` |
+| App Hosting | Azure App Service F1 Linux | ✅ [`cohabitant-cbdbf8f2chh3a0d5.centralus-01.azurewebsites.net`](https://cohabitant-cbdbf8f2chh3a0d5.centralus-01.azurewebsites.net) |
+| Container | Docker Hub | ✅ [`deep25lelouch/cohabitant:latest`](https://hub.docker.com/r/deep25lelouch/cohabitant) |
+| CI/CD | GitHub Actions (pytest + Docker build) | ✅ Green |
 
-### Step 1: Populate Azure SQL
-
-Run the 5 scripts in `azure_deploy/` (01→05) against your Azure SQL Database via VS Code SQL Server extension. These are identical to the root scripts but with `USE CoHabitant;` removed for Azure SQL compatibility.
-
-### Step 2: Build & push Docker image
+### Re-deploy (after code changes)
 
 ```powershell
 cd DAMG6210-GroupAssignment
-docker build -t YOUR_DOCKERHUB_USER/cohabitant:latest ./streamlit_app
-docker push YOUR_DOCKERHUB_USER/cohabitant:latest
+docker build -t deep25lelouch/cohabitant:latest ./streamlit_app
+docker push deep25lelouch/cohabitant:latest
+# Then: Azure Portal → cohabitant Web App → Restart
 ```
 
-### Step 3: Create Azure App Service (Portal UI)
+### First-time setup (already completed)
 
-1. Azure Portal → Create Resource → Web App
-2. Select **Docker Container**, **Linux**, **F1 (Free)** plan
-3. Point to `YOUR_DOCKERHUB_USER/cohabitant:latest`
-4. Set App Setting: `WEBSITES_PORT=8501`
-5. Inject `secrets.toml` content via startup command or App Settings
-6. Enable "Allow Azure services" on the SQL Server firewall
+1. Populated Azure SQL via `azure_deploy/01-05.sql` scripts (VS Code SQL Server extension)
+2. Built Docker image with `secrets.azure.toml` baked in as `secrets.toml`
+3. Pushed to Docker Hub (`deep25lelouch/cohabitant:latest`)
+4. Created Azure Web App (Container, Linux, F1 Free) via Azure Portal
+5. Set `WEBSITES_PORT=8501` in Environment Variables
+6. Enabled "Allow Azure services" on SQL Server firewall
 
-### Step 4: Verify
-
-App URL: `https://YOUR-APP-NAME.azurewebsites.net`
-
-> **Note:** Azure Free SQL auto-pauses after 1 hour of inactivity. First request after pause takes ~60 seconds to wake. The retry logic in `db.py` handles this gracefully.
+> **Note:** Azure Free SQL auto-pauses after 1 hour of inactivity. First request after pause takes ~60 seconds to wake. The retry logic in `db.py` handles this gracefully. The App Service F1 tier has 60 minutes of daily CPU time.
 
 ---
 

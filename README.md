@@ -4,6 +4,10 @@
 > Northeastern University, Spring 2026
 > Team: Deep Prajapati, Tianyi Fan, Ashfaq Ahmed Mohd
 
+**🚀 Live Demo:** [cohabitant-cbdbf8f2chh3a0d5.centralus-01.azurewebsites.net](https://cohabitant-cbdbf8f2chh3a0d5.centralus-01.azurewebsites.net)
+
+> **Note:** The Azure Free tier auto-pauses the database after 1 hour of inactivity. The first page load after a pause takes ~60 seconds while the database wakes up. Subsequent requests are fast.
+
 ## Mission Statement
 
 A centralized household management database that reduces conflict in shared living environments. The system integrates inventory tracking, expense splitting, chore scheduling, and democratic governance into a single source of truth — ensuring transparency and fairness among tenants while maintaining a digital paper trail for landlord interactions and lease compliance.
@@ -61,17 +65,20 @@ A full read-only re-audit identified 4 concurrency and correctness issues, all r
 | Medium | UPDLOCK in caller/counterparty order → deadlock on opposite-direction settlements | Deterministic lock ordering by ascending `Tenant_ID` |
 | Low | Voting page bypassed `AppState` | Migrated to `AppState()` + `auth_gate()` |
 
-## Azure Deployment
+## Azure Deployment ✅
 
-Production deployment targets 100% Azure Free Tier:
+Deployed and live on 100% Azure Free Tier:
 
-| Component | Service | Tier |
-|-----------|---------|------|
-| Database | Azure SQL Database | Free (Gen5 Serverless, 2 vCores) |
-| App Hosting | Azure App Service | F1 (Free Linux) |
-| Container Registry | Docker Hub | Free |
+| Component | Service | Tier | Status |
+|-----------|---------|------|--------|
+| Database | Azure SQL Database | Free (Gen5 Serverless, 2 vCores, auto-pause 1hr) | ✅ Live |
+| App Hosting | Azure App Service (F1 Linux) | Free | ✅ Live |
+| Container Registry | Docker Hub (`deep25lelouch/cohabitant`) | Free | ✅ Pushed |
+| CI/CD | GitHub Actions | Free | ✅ Green |
 
-The `azure_deploy/` folder contains Azure-ready SQL scripts (identical to the root scripts but with `USE CoHabitant;` removed for Azure SQL compatibility).
+**Live URL:** [`cohabitant-cbdbf8f2chh3a0d5.centralus-01.azurewebsites.net`](https://cohabitant-cbdbf8f2chh3a0d5.centralus-01.azurewebsites.net)
+
+The `azure_deploy/` folder contains Azure-ready SQL scripts (identical to the root scripts but with `USE CoHabitant;` removed for Azure SQL compatibility). Re-deploy the app by pushing a new image to Docker Hub and restarting the Web App.
 
 ## Repository Structure
 

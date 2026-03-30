@@ -55,6 +55,15 @@ COPY . .
 RUN mkdir -p /app/.streamlit
 COPY .streamlit/config.toml /app/.streamlit/config.toml
 
+# ── Azure secrets (gitignored but included in Docker build) ──
+# secrets.azure.toml is excluded from Git (.gitignore) but included in the
+# Docker context (.dockerignore only blocks secrets.toml, not secrets.azure.toml).
+# This copies it as the secrets.toml the app expects at runtime.
+# If the file doesn't exist (e.g., local dev build), the build still succeeds
+# because COPY will fail only if the source doesn't exist — for local dev,
+# mount secrets.toml via docker-compose volume instead.
+COPY .streamlit/secrets.azure.toml /app/.streamlit/secrets.toml
+
 # ── Health check for Azure App Service ──
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
     CMD curl -f http://localhost:8501/_stcore/health || exit 1

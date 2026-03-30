@@ -1,7 +1,24 @@
 USE CoHabitant;
 GO
 
--- 1. PERSON (20 rows total: 10 Landlords, 10 Tenants)
+-- ============================================================================
+-- CoHabitant — Demo Seed Data (v2)
+-- ============================================================================
+-- Key fix: Multiple tenants per property so roommate features actually work.
+--
+-- Property layout:
+--   Property 1 (123 Maple St, Boston):    Kevin(11), Laura(12), Michael(13)  ← main demo house
+--   Property 2 (456 Oak Ave, Boston):      Nina(14), Oscar(15), Pam(16)
+--   Property 3 (789 Pine Blvd, Cambridge): Quinn(17), Ryan(18)
+--   Property 4 (101 Elm St, Somerville):   Stanley(19)                       ← solo tenant
+--   Property 5 (202 Cedar Rd, Brookline):  Toby(20)                          ← solo tenant
+--   Properties 6-10: Empty (available for onboarding demo)
+--
+-- All expenses, shares, payments, votes, and chores are scoped within
+-- the same property — matching exactly what the SPs enforce at runtime.
+-- ============================================================================
+
+-- 1. PERSON (20 rows: 10 Landlords + 10 Tenants)
 SET IDENTITY_INSERT dbo.PERSON ON;
 INSERT INTO dbo.PERSON (Person_ID, First_Name, Last_Name, Email, Phone_Number) VALUES
 (1, 'Alice', 'Smith', 'alice.landlord@email.com', '555-0101'),
@@ -27,7 +44,7 @@ INSERT INTO dbo.PERSON (Person_ID, First_Name, Last_Name, Email, Phone_Number) V
 SET IDENTITY_INSERT dbo.PERSON OFF;
 GO
 
--- 2. LANDLORD
+-- 2. LANDLORD (10 landlords, properties 6-10 are empty — ready for demo)
 INSERT INTO dbo.LANDLORD (Landlord_ID, Bank_Details, Tax_ID) VALUES
 (1, 'Chase Bank - Acct 1234', 'TAX-111'),
 (2, 'Bank of America - Acct 5678', 'TAX-222'),
@@ -41,7 +58,7 @@ INSERT INTO dbo.LANDLORD (Landlord_ID, Bank_Details, Tax_ID) VALUES
 (10, 'Truist - Acct 8901', 'TAX-000');
 GO
 
--- 3. PROPERTY
+-- 3. PROPERTY (10 properties; tenants on 1-5 only)
 SET IDENTITY_INSERT dbo.PROPERTY ON;
 INSERT INTO dbo.PROPERTY (Property_ID, Landlord_ID, Street_Address, City, State, Zip_Code, Max_Occupancy, WiFi_Password) VALUES
 (1, 1, '123 Maple St', 'Boston', 'MA', '02115', 4, 'mapleTree123'),
@@ -57,61 +74,60 @@ INSERT INTO dbo.PROPERTY (Property_ID, Landlord_ID, Street_Address, City, State,
 SET IDENTITY_INSERT dbo.PROPERTY OFF;
 GO
 
--- 4. TENANT (Lease_ID removed per feedback)
+-- 4. TENANT (balances reflect the seed expense/payment data below)
 INSERT INTO dbo.TENANT (Tenant_ID, Current_Net_Balance, Emergency_Contact, Tenant_Responsibility_Score) VALUES
-(11, -50.00, 'Mom: 555-9001', 95),
-(12, 25.00, 'Dad: 555-9002', 88),
-(13, 0.00, 'Sister: 555-9003', 100),
-(14, -120.50, 'Brother: 555-9004', 70),
-(15, 15.00, 'Friend: 555-9005', 92),
-(16, 0.00, 'Aunt: 555-9006', 85),
-(17, -30.00, 'Uncle: 555-9007', 98),
-(18, 0.00, 'Mom: 555-9008', 100),
-(19, 45.00, 'Dad: 555-9009', 75),
-(20, -10.00, 'Sister: 555-9010', 89);
+(11, 50.00, 'Mom: 555-9001', 95),       -- Kevin  (Property 1) net positive
+(12, -35.00, 'Dad: 555-9002', 88),      -- Laura  (Property 1) net negative
+(13, -15.00, 'Sister: 555-9003', 100),  -- Michael(Property 1)
+(14, 40.00, 'Brother: 555-9004', 82),   -- Nina   (Property 2) net positive
+(15, -10.00, 'Friend: 555-9005', 92),   -- Oscar  (Property 2)
+(16, -30.00, 'Aunt: 555-9006', 85),     -- Pam    (Property 2) net negative
+(17, 15.00, 'Uncle: 555-9007', 98),      -- Quinn  (Property 3)
+(18, -15.00, 'Mom: 555-9008', 100),     -- Ryan   (Property 3)
+(19, 0.00, 'Dad: 555-9009', 75),         -- Stanley(Property 4) solo
+(20, 0.00, 'Sister: 555-9010', 89);      -- Toby   (Property 5) solo
 GO
 
--- 5. LEASE_AGREEMENT (Tenant_ID added per feedback)
+-- 5. LEASE_AGREEMENT — THE KEY FIX: multiple tenants per property
 SET IDENTITY_INSERT dbo.LEASE_AGREEMENT ON;
 INSERT INTO dbo.LEASE_AGREEMENT (Lease_ID, Property_ID, Tenant_ID, Start_Date, End_Date, Move_In_Date, Document_URL) VALUES
+-- Property 1: Kevin, Laura, Michael (3 roommates)
 (1, 1, 11, '2025-09-01', '2026-08-31', '2025-09-01', 'https://cohabitant.com/lease1.pdf'),
-(2, 2, 12, '2025-09-01', '2026-08-31', '2025-09-05', 'https://cohabitant.com/lease2.pdf'),
-(3, 3, 13, '2026-01-01', '2026-12-31', '2026-01-02', 'https://cohabitant.com/lease3.pdf'),
-(4, 4, 14, '2025-06-01', '2026-05-31', '2025-06-01', 'https://cohabitant.com/lease4.pdf'),
-(5, 5, 15, '2025-09-01', '2026-08-31', '2025-09-01', 'https://cohabitant.com/lease5.pdf'),
-(6, 6, 16, '2026-02-01', '2027-01-31', '2026-02-01', 'https://cohabitant.com/lease6.pdf'),
-(7, 7, 17, '2025-08-01', '2026-07-31', '2025-08-10', 'https://cohabitant.com/lease7.pdf'),
-(8, 8, 18, '2025-09-01', '2026-08-31', '2025-09-02', 'https://cohabitant.com/lease8.pdf'),
-(9, 9, 19, '2025-10-01', '2026-09-30', '2025-10-01', 'https://cohabitant.com/lease9.pdf'),
-(10, 10, 20, '2026-01-15', '2027-01-14', '2026-01-15', 'https://cohabitant.com/lease10.pdf');
+(2, 1, 12, '2025-09-01', '2026-08-31', '2025-09-05', 'https://cohabitant.com/lease2.pdf'),
+(3, 1, 13, '2025-09-01', '2026-08-31', '2025-09-03', 'https://cohabitant.com/lease3.pdf'),
+-- Property 2: Nina, Oscar, Pam (3 roommates)
+(4, 2, 14, '2025-09-01', '2026-08-31', '2025-09-01', 'https://cohabitant.com/lease4.pdf'),
+(5, 2, 15, '2025-09-01', '2026-08-31', '2025-09-02', 'https://cohabitant.com/lease5.pdf'),
+(6, 2, 16, '2025-09-01', '2026-08-31', '2025-09-01', 'https://cohabitant.com/lease6.pdf'),
+-- Property 3: Quinn, Ryan (2 roommates)
+(7, 3, 17, '2025-09-01', '2026-08-31', '2025-09-01', 'https://cohabitant.com/lease7.pdf'),
+(8, 3, 18, '2025-09-01', '2026-08-31', '2025-09-02', 'https://cohabitant.com/lease8.pdf'),
+-- Property 4: Stanley (solo)
+(9, 4, 19, '2025-09-01', '2026-08-31', '2025-09-01', 'https://cohabitant.com/lease9.pdf'),
+-- Property 5: Toby (solo)
+(10, 5, 20, '2025-09-01', '2026-08-31', '2025-09-01', 'https://cohabitant.com/lease10.pdf');
 SET IDENTITY_INSERT dbo.LEASE_AGREEMENT OFF;
 GO
 
--- 6. SUB_LEASE
+-- 6. SUB_LEASE (within lease windows)
 SET IDENTITY_INSERT dbo.SUB_LEASE ON;
 INSERT INTO dbo.SUB_LEASE (SubLease_ID, Tenant_ID, Start_Date, End_Date, Pro_Rated_Cost) VALUES
 (1, 11, '2026-06-01', '2026-08-31', 1200.00),
-(2, 12, '2026-05-01', '2026-08-31', 1500.00),
-(3, 13, '2026-07-01', '2026-08-31', 800.00),
-(4, 14, '2026-10-01', '2026-12-31', 1100.00),
-(5, 15, '2026-01-01', '2026-05-31', 2000.00),
-(6, 16, '2026-06-01', '2026-08-31', 1300.00),
-(7, 17, '2026-11-01', '2027-01-31', 1400.00),
-(8, 18, '2026-05-01', '2026-07-31', 1250.00),
-(9, 19, '2026-06-01', '2026-08-31', 1150.00),
-(10, 20, '2026-07-01', '2026-09-30', 1050.00);
+(2, 12, '2026-06-01', '2026-08-31', 1200.00),
+(3, 14, '2026-06-01', '2026-08-31', 1100.00),
+(4, 17, '2026-06-01', '2026-08-31', 1400.00);
 SET IDENTITY_INSERT dbo.SUB_LEASE OFF;
 GO
 
--- 7. GUEST
+-- 7. GUEST (registered by tenants)
 SET IDENTITY_INSERT dbo.GUEST ON;
 INSERT INTO dbo.GUEST (Guest_ID, Tenant_ID, First_Name, Last_Name, Arrival_Date, Is_Overnight) VALUES
 (1, 11, 'John', 'Doe', '2026-03-15', 1),
-(2, 12, 'Jane', 'Smith', '2026-03-16', 0),
-(3, 13, 'Mike', 'Johnson', '2026-03-17', 1),
-(4, 14, 'Emily', 'Davis', '2026-03-18', 0),
-(5, 15, 'Chris', 'Wilson', '2026-03-19', 1),
-(6, 16, 'Sarah', 'Brown', '2026-03-20', 0),
+(2, 11, 'Jane', 'Doe', '2026-03-15', 1),
+(3, 12, 'Mike', 'Johnson', '2026-03-17', 0),
+(4, 13, 'Emily', 'Davis', '2026-03-18', 1),
+(5, 14, 'Chris', 'Wilson', '2026-03-19', 0),
+(6, 15, 'Sarah', 'Brown', '2026-03-20', 1),
 (7, 17, 'David', 'Taylor', '2026-03-21', 1),
 (8, 18, 'Jessica', 'Anderson', '2026-03-22', 0),
 (9, 19, 'Matthew', 'Thomas', '2026-03-23', 1),
@@ -119,25 +135,27 @@ INSERT INTO dbo.GUEST (Guest_ID, Tenant_ID, First_Name, Last_Name, Arrival_Date,
 SET IDENTITY_INSERT dbo.GUEST OFF;
 GO
 
--- 8. INVENTORY_ITEM 
+-- 8. INVENTORY_ITEM (20 items)
 SET IDENTITY_INSERT dbo.INVENTORY_ITEM ON;
 INSERT INTO dbo.INVENTORY_ITEM (Item_ID, Item_Name, Total_Quantity, Category, Storage_Location) VALUES
+-- Shared items (will link to properties)
 (1, 'Paper Towels', 6, 'Cleaning', 'Kitchen Pantry'),
 (2, 'Dish Soap', 2, 'Cleaning', 'Under Sink'),
 (3, 'Toilet Paper', 12, 'Bathroom', 'Hall Closet'),
 (4, 'Trash Bags', 30, 'Kitchen', 'Under Sink'),
 (5, 'Olive Oil', 1, 'Groceries', 'Kitchen Cabinet'),
-(6, 'Salt', 1, 'Groceries', 'Kitchen Spice Rack'),
-(7, 'All-Purpose Cleaner', 2, 'Cleaning', 'Utility Closet'),
-(8, 'Laundry Detergent', 1, 'Cleaning', 'Laundry Room'),
-(9, 'Sponges', 4, 'Cleaning', 'Under Sink'),
-(10, 'Coffee Filters', 50, 'Kitchen', 'Pantry'),
-(11, 'Protein Powder', 1, 'Groceries', 'Tenant 11 Shelf'),
+(6, 'All-Purpose Cleaner', 2, 'Cleaning', 'Utility Closet'),
+(7, 'Laundry Detergent', 1, 'Cleaning', 'Laundry Room'),
+(8, 'Sponges', 4, 'Cleaning', 'Under Sink'),
+(9, 'Coffee Filters', 50, 'Kitchen', 'Pantry'),
+(10, 'Salt', 1, 'Groceries', 'Kitchen Spice Rack'),
+-- Personal items (will link to tenants)
+(11, 'Protein Powder', 1, 'Groceries', 'Tenant Shelf'),
 (12, 'Almond Milk', 2, 'Groceries', 'Fridge Top Shelf'),
 (13, 'Hair Gel', 1, 'Personal Care', 'Bathroom Vanity'),
 (14, 'Expensive Shampoo', 1, 'Personal Care', 'Shower Caddy'),
 (15, 'Gaming Controller', 2, 'Electronics', 'Living Room'),
-(16, 'Laptop Charger', 1, 'Electronics', 'Tenant 16 Room'),
+(16, 'Laptop Charger', 1, 'Electronics', 'Bedroom'),
 (17, 'Specialty Coffee', 1, 'Groceries', 'Pantry'),
 (18, 'Greek Yogurt', 4, 'Groceries', 'Fridge Bottom Shelf'),
 (19, 'Toothpaste', 1, 'Personal Care', 'Bathroom Cabinet'),
@@ -145,83 +163,112 @@ INSERT INTO dbo.INVENTORY_ITEM (Item_ID, Item_Name, Total_Quantity, Category, St
 SET IDENTITY_INSERT dbo.INVENTORY_ITEM OFF;
 GO
 
--- 9. SHARED_ITEM 
+-- 9. SHARED_ITEM (linked to properties with tenants)
 INSERT INTO dbo.SHARED_ITEM (Item_ID, Property_ID, Low_Stock_Threshold, Auto_Replenish_Flag) VALUES
-(1, 1, 2, 1),
-(2, 1, 1, 0),
-(3, 2, 4, 1),
-(4, 3, 10, 0),
-(5, 4, 1, 0),
-(6, 5, 1, 0),
-(7, 6, 1, 1),
-(8, 7, 1, 1),
-(9, 8, 2, 0),
-(10, 9, 10, 0);
+(1, 1, 2, 1),   -- Paper Towels → Property 1 (Kevin/Laura/Michael)
+(2, 1, 1, 0),   -- Dish Soap → Property 1
+(3, 1, 4, 1),   -- Toilet Paper → Property 1
+(4, 2, 10, 0),  -- Trash Bags → Property 2 (Nina/Oscar/Pam)
+(5, 2, 1, 0),   -- Olive Oil → Property 2
+(6, 2, 1, 1),   -- Cleaner → Property 2
+(7, 3, 1, 1),   -- Laundry Detergent → Property 3 (Quinn/Ryan)
+(8, 3, 2, 0),   -- Sponges → Property 3
+(9, 1, 10, 0),  -- Coffee Filters → Property 1
+(10, 3, 1, 0);  -- Salt → Property 3
 GO
 
--- 10. PERSONAL_ITEM 
+-- 10. PERSONAL_ITEM (linked to individual tenants)
 INSERT INTO dbo.PERSONAL_ITEM (Item_ID, Tenant_ID, Is_Private) VALUES
-(11, 11, 1),
-(12, 12, 0),
-(13, 13, 1),
-(14, 14, 1),
-(15, 15, 0),
-(16, 16, 1),
-(17, 17, 1),
-(18, 18, 1),
-(19, 19, 1),
-(20, 20, 1);
+(11, 11, 1),  -- Kevin's Protein Powder
+(12, 12, 0),  -- Laura's Almond Milk (not private — roommates can use)
+(13, 13, 1),  -- Michael's Hair Gel
+(14, 14, 1),  -- Nina's Shampoo
+(15, 15, 0),  -- Oscar's Gaming Controller (shared with house)
+(16, 16, 1),  -- Pam's Laptop Charger
+(17, 17, 1),  -- Quinn's Specialty Coffee
+(18, 18, 1),  -- Ryan's Greek Yogurt
+(19, 19, 1),  -- Stanley's Toothpaste
+(20, 20, 1);  -- Toby's Electric Razor
 GO
 
--- 11. EXPENSE
+-- 11. EXPENSE (property-scoped: payer and debtors share the same property)
+--
+-- Property 1 (Kevin, Laura, Michael):
+--   Exp 1: Kevin paid $120 groceries (Equal, 3-way)
+--   Exp 2: Laura paid $90 internet (Equal, 3-way)
+--   Exp 3: Michael paid $60 cleaning supplies (Equal, 3-way)
+--   Exp 4: Kevin paid $45 takeout (Custom — Laura only, Michael didn't eat)
+--
+-- Property 2 (Nina, Oscar, Pam):
+--   Exp 5: Nina paid $150 deep cleaning (Equal, 3-way)
+--   Exp 6: Oscar paid $75 utility split (Equal, 3-way)
+--   Exp 7: Pam paid $42 household supplies (Equal, 3-way)
+--
+-- Property 3 (Quinn, Ryan):
+--   Exp 8: Quinn paid $80 groceries (Equal, 2-way)
+--   Exp 9: Ryan paid $50 cleaning (Equal, 2-way)
+--
+-- Solo (no shares created):
+--   Exp 10: Stanley paid $30 personal supplies
+--
 SET IDENTITY_INSERT dbo.EXPENSE ON;
 INSERT INTO dbo.EXPENSE (Expense_ID, Paid_By_Tenant_ID, Total_Amount, Date_Incurred, Split_Policy, Receipt_Image) VALUES
-(1, 11, 120.00, '2026-03-01', 'Equal', 'receipt_elec_mar.jpg'),
-(2, 12, 45.50, '2026-03-05', 'Equal', 'receipt_groceries.jpg'),
-(3, 13, 80.00, '2026-03-10', 'Custom', 'receipt_internet.jpg'),
-(4, 14, 200.00, '2026-03-12', 'Equal', 'receipt_cleaning.jpg'),
-(5, 15, 30.00, '2026-03-15', 'Equal', 'receipt_supplies.jpg'),
-(6, 16, 150.00, '2026-03-18', 'Custom', 'receipt_gas.jpg'),
-(7, 17, 60.00, '2026-03-20', 'Equal', 'receipt_water.jpg'),
-(8, 18, 90.00, '2026-03-22', 'Equal', 'receipt_furniture.jpg'),
-(9, 19, 25.00, '2026-03-25', 'Custom', 'receipt_streaming.jpg'),
-(10, 20, 110.00, '2026-03-28', 'Equal', 'receipt_repairs.jpg');
+(1, 11, 120.00, '2026-03-01', 'Equal', 'receipt_groceries_mar.jpg'),
+(2, 12, 90.00, '2026-03-05', 'Equal', 'receipt_internet_mar.jpg'),
+(3, 13, 60.00, '2026-03-10', 'Equal', 'receipt_cleaning.jpg'),
+(4, 11, 45.00, '2026-03-14', 'Custom', 'receipt_takeout.jpg'),
+(5, 14, 150.00, '2026-03-03', 'Equal', 'receipt_deepclean.jpg'),
+(6, 15, 75.00, '2026-03-08', 'Equal', 'receipt_utilities.jpg'),
+(7, 16, 42.00, '2026-03-12', 'Equal', 'receipt_supplies.jpg'),
+(8, 17, 80.00, '2026-03-06', 'Equal', 'receipt_groceries_q.jpg'),
+(9, 18, 50.00, '2026-03-15', 'Equal', 'receipt_cleaning_r.jpg'),
+(10, 19, 30.00, '2026-03-20', 'Equal', NULL);
 SET IDENTITY_INSERT dbo.EXPENSE OFF;
 GO
 
--- 12. EXPENSE_SHARE
+-- 12. EXPENSE_SHARE (all within same property as the expense payer)
 SET IDENTITY_INSERT dbo.EXPENSE_SHARE ON;
 INSERT INTO dbo.EXPENSE_SHARE (Share_ID, Expense_ID, Owed_By_Tenant_ID, Owed_Amount, Status) VALUES
-(1, 1, 12, 60.00, 'Pending'),
-(2, 2, 11, 22.75, 'Paid'),
-(3, 3, 14, 40.00, 'Pending'),
-(4, 4, 15, 100.00, 'Paid'),
-(5, 5, 16, 15.00, 'Pending'),
-(6, 6, 17, 75.00, 'Pending'),
-(7, 7, 18, 30.00, 'Paid'),
-(8, 8, 19, 45.00, 'Pending'),
-(9, 9, 20, 12.50, 'Paid'),
-(10, 10, 11, 55.00, 'Pending');
+-- Property 1: Expense 1 (Kevin paid $120 → Laura $40, Michael $40)
+(1, 1, 12, 40.00, 'Pending'),
+(2, 1, 13, 40.00, 'Pending'),
+-- Property 1: Expense 2 (Laura paid $90 → Kevin $30, Michael $30)
+(3, 2, 11, 30.00, 'Paid'),      -- Kevin settled this
+(4, 2, 13, 30.00, 'Pending'),
+-- Property 1: Expense 3 (Michael paid $60 → Kevin $20, Laura $20)
+(5, 3, 11, 20.00, 'Pending'),
+(6, 3, 12, 20.00, 'Pending'),
+-- Property 1: Expense 4 (Kevin paid $45 custom → Laura $45 only)
+(7, 4, 12, 45.00, 'Pending'),
+-- Property 2: Expense 5 (Nina paid $150 → Oscar $50, Pam $50)
+(8, 5, 15, 50.00, 'Paid'),      -- Oscar settled this
+(9, 5, 16, 50.00, 'Pending'),
+-- Property 2: Expense 6 (Oscar paid $75 → Nina $25, Pam $25)
+(10, 6, 14, 25.00, 'Pending'),
+(11, 6, 16, 25.00, 'Pending'),
+-- Property 2: Expense 7 (Pam paid $42 → Nina $14, Oscar $14)
+(12, 7, 14, 14.00, 'Pending'),
+(13, 7, 15, 14.00, 'Pending'),
+-- Property 3: Expense 8 (Quinn paid $80 → Ryan $40)
+(14, 8, 18, 40.00, 'Pending'),
+-- Property 3: Expense 9 (Ryan paid $50 → Quinn $25)
+(15, 9, 17, 25.00, 'Paid');      -- Quinn settled this
 SET IDENTITY_INSERT dbo.EXPENSE_SHARE OFF;
 GO
 
--- 13. PAYMENT
+-- 13. PAYMENT (settlements only between roommates on the SAME property)
 SET IDENTITY_INSERT dbo.PAYMENT ON;
 INSERT INTO dbo.PAYMENT (Payment_ID, Payer_Tenant_ID, Payee_Tenant_ID, Amount, Payment_Date, Note, Payment_Type) VALUES
-(1, 12, 11, 60.00, '2026-03-02', 'For March Electricity', 'Settlement'),
-(2, 11, 12, 22.75, '2026-03-06', 'Groceries share', 'Settlement'),
-(3, 14, 13, 40.00, '2026-03-11', 'Internet bill', 'Settlement'),
-(4, 15, 14, 100.00, '2026-03-13', 'Deep cleaning service', 'Settlement'),
-(5, 16, 15, 15.00, '2026-03-16', 'Paper towels and soap', 'Settlement'),
-(6, 17, 16, 75.00, '2026-03-19', 'Gas bill', 'Settlement'),
-(7, 18, 17, 30.00, '2026-03-21', 'Water bill', 'Settlement'),
-(8, 19, 18, 45.00, '2026-03-23', 'Couch repair share', 'Settlement'),
-(9, 20, 19, 12.50, '2026-03-26', 'Netflix/Hulu split', 'Settlement'),
-(10, 11, 20, 55.00, '2026-03-29', 'Sink repair share', 'Settlement');
+-- Property 1: Kevin settles his $30 debt to Laura (from Expense 2)
+(1, 11, 12, 30.00, '2026-03-07', 'Internet bill — my share', 'Settlement'),
+-- Property 2: Oscar settles his $50 debt to Nina (from Expense 5)
+(2, 15, 14, 50.00, '2026-03-09', 'Deep cleaning — my share', 'Settlement'),
+-- Property 3: Quinn settles her $25 debt to Ryan (from Expense 9)
+(3, 17, 18, 25.00, '2026-03-18', 'Cleaning supplies — settled', 'Settlement');
 SET IDENTITY_INSERT dbo.PAYMENT OFF;
 GO
 
--- 14. CHORE_DEFINITION
+-- 14. CHORE_DEFINITION (10 reusable chore templates)
 SET IDENTITY_INSERT dbo.CHORE_DEFINITION ON;
 INSERT INTO dbo.CHORE_DEFINITION (Chore_ID, Task_Name, Description, Difficulty_Weight, Frequency) VALUES
 (1, 'Take Out Trash', 'Empty kitchen and bathroom bins to curbside.', 2, 'Weekly'),
@@ -237,82 +284,103 @@ INSERT INTO dbo.CHORE_DEFINITION (Chore_ID, Task_Name, Description, Difficulty_W
 SET IDENTITY_INSERT dbo.CHORE_DEFINITION OFF;
 GO
 
--- 15. CHORE_ASSIGNMENT
+-- 15. CHORE_ASSIGNMENT (assigned to tenants — mix of completed and pending)
 SET IDENTITY_INSERT dbo.CHORE_ASSIGNMENT ON;
 INSERT INTO dbo.CHORE_ASSIGNMENT (Assignment_ID, Chore_ID, Assigned_Tenant_ID, Due_Date, Completion_Date, Status, Proof_Image) VALUES
+-- Property 1 chores (Kevin, Laura, Michael)
 (1, 1, 11, '2026-03-05', '2026-03-05', 'Completed', 'trash_done.jpg'),
 (2, 2, 12, '2026-03-07', NULL, 'Pending', NULL),
 (3, 3, 13, '2026-03-10', '2026-03-09', 'Completed', 'vacuum_done.jpg'),
-(4, 4, 14, '2026-03-12', NULL, 'Pending', NULL),
-(5, 5, 15, '2026-03-15', '2026-03-15', 'Completed', 'mop_done.jpg'),
-(6, 6, 16, '2026-03-20', NULL, 'Pending', NULL),
-(7, 7, 17, '2026-03-25', '2026-03-24', 'Completed', 'fridge_done.jpg'),
-(8, 8, 18, '2026-03-28', NULL, 'Pending', NULL),
-(9, 9, 19, '2026-03-30', '2026-03-30', 'Completed', 'recycling_done.jpg'),
-(10, 10, 20, '2026-04-05', NULL, 'Pending', NULL);
+(4, 4, 11, '2026-03-14', NULL, 'Pending', NULL),
+(5, 7, 12, '2026-03-20', NULL, 'Pending', NULL),
+(6, 9, 13, '2026-03-12', '2026-03-12', 'Completed', 'recycling_done.jpg'),
+-- Property 2 chores (Nina, Oscar, Pam)
+(7, 5, 14, '2026-03-15', '2026-03-15', 'Completed', 'mop_done.jpg'),
+(8, 6, 15, '2026-03-20', NULL, 'Pending', NULL),
+(9, 8, 16, '2026-03-25', NULL, 'Pending', NULL),
+-- Property 3 chores (Quinn, Ryan)
+(10, 10, 17, '2026-04-01', NULL, 'Pending', NULL),
+(11, 1, 18, '2026-03-19', '2026-03-19', 'Completed', 'trash_done_r.jpg'),
+-- Solo
+(12, 2, 19, '2026-03-28', NULL, 'Pending', NULL);
 SET IDENTITY_INSERT dbo.CHORE_ASSIGNMENT OFF;
 GO
 
--- 16. PROPOSAL
+-- 16. PROPOSAL (proposed by tenants — roommates on same property vote)
 SET IDENTITY_INSERT dbo.PROPOSAL ON;
 INSERT INTO dbo.PROPOSAL (Proposal_ID, Proposed_By_Tenant_ID, Description, Cost_Threshold, Status) VALUES
+-- Property 1 proposals
 (1, 11, 'Buy a new living room rug', 150.00, 'Active'),
 (2, 12, 'Implement quiet hours after 11 PM', 0.00, 'Approved'),
-(3, 13, 'Upgrade internet speed', 20.00, 'Active'),
+(3, 13, 'Upgrade internet to 1 Gbps', 20.00, 'Active'),
+-- Property 2 proposals
 (4, 14, 'Hire bi-weekly cleaning service', 100.00, 'Rejected'),
 (5, 15, 'Split cost for a shared air fryer', 80.00, 'Approved'),
-(6, 16, 'Change thermostat default to 70 degrees', 0.00, 'Active'),
+(6, 16, 'Change thermostat default to 70°F', 0.00, 'Active'),
+-- Property 3 proposals
 (7, 17, 'Get a house Netflix account', 15.00, 'Approved'),
-(8, 18, 'Ban guests during finals week', 0.00, 'Rejected'),
-(9, 19, 'Buy a shared printer', 120.00, 'Active'),
-(10, 20, 'Start composting in the kitchen', 30.00, 'Approved');
+(8, 18, 'No overnight guests during finals', 0.00, 'Active');
 SET IDENTITY_INSERT dbo.PROPOSAL OFF;
 GO
 
--- 17. VOTE
+-- 17. VOTE (voters must be roommates of the proposer — same property)
 SET IDENTITY_INSERT dbo.VOTE ON;
 INSERT INTO dbo.VOTE (Vote_ID, Proposal_ID, Tenant_ID, Approval_Status, Vote_Timestamp) VALUES
+-- Prop 1 (Kevin's, Property 1): Laura votes Yes
 (1, 1, 12, 1, '2026-03-01 10:00:00'),
+-- Prop 2 (Laura's, Property 1): Kevin votes Yes, Michael votes Yes → Approved
 (2, 2, 11, 1, '2026-03-02 11:30:00'),
-(3, 3, 14, 0, '2026-03-03 14:15:00'),
-(4, 4, 15, 0, '2026-03-04 09:45:00'),
-(5, 5, 16, 1, '2026-03-05 16:20:00'),
-(6, 6, 17, 1, '2026-03-06 18:05:00'),
-(7, 7, 18, 1, '2026-03-07 20:10:00'),
-(8, 8, 19, 0, '2026-03-08 08:55:00'),
-(9, 9, 20, 1, '2026-03-09 12:40:00'),
-(10, 10, 11, 1, '2026-03-10 22:15:00');
+(3, 2, 13, 1, '2026-03-02 14:15:00'),
+-- Prop 3 (Michael's, Property 1): Kevin votes No (still Active, Laura hasn't voted)
+(4, 3, 11, 0, '2026-03-03 09:00:00'),
+-- Prop 4 (Nina's, Property 2): Oscar No, Pam No → Rejected
+(5, 4, 15, 0, '2026-03-04 09:45:00'),
+(6, 4, 16, 0, '2026-03-04 10:30:00'),
+-- Prop 5 (Oscar's, Property 2): Nina Yes, Pam Yes → Approved
+(7, 5, 14, 1, '2026-03-05 16:20:00'),
+(8, 5, 16, 1, '2026-03-05 17:00:00'),
+-- Prop 7 (Quinn's, Property 3): Ryan votes Yes → Approved
+(9, 7, 18, 1, '2026-03-07 20:10:00');
 SET IDENTITY_INSERT dbo.VOTE OFF;
 GO
 
--- 18. UTILITY_TYPE (New Lookup Table)
+-- 18. UTILITY_TYPE (lookup table)
 SET IDENTITY_INSERT dbo.UTILITY_TYPE ON;
 INSERT INTO dbo.UTILITY_TYPE (Utility_Type_ID, Type_Name) VALUES
 (1, 'Electricity'),
 (2, 'Water'),
 (3, 'Gas'),
 (4, 'Internet'),
-(5, 'Trash Collection'),
-(6, 'Recycling'),
-(7, 'Sewer'),
-(8, 'Cable TV'),
-(9, 'Security System'),
-(10, 'Heating Oil');
+(5, 'Trash Collection');
 SET IDENTITY_INSERT dbo.UTILITY_TYPE OFF;
 GO
 
--- 19. UTILITY_READING (Updated to use Lookup ID)
+-- 19. UTILITY_READING (multi-month data for analytics trends)
+--     Focused on Properties 1-3 so tenants can see their analytics
 SET IDENTITY_INSERT dbo.UTILITY_READING ON;
 INSERT INTO dbo.UTILITY_READING (Reading_ID, Property_ID, Utility_Type_ID, Provider_Name, Meter_Value, Reading_Date) VALUES
-(1, 1, 1, 'Eversource', 1500.50, '2026-03-01'),
-(2, 2, 2, 'MWRA', 320.10, '2026-03-02'),
-(3, 3, 3, 'National Grid', 850.75, '2026-03-03'),
-(4, 4, 1, 'Eversource', 1420.00, '2026-03-04'),
-(5, 5, 2, 'MWRA', 315.20, '2026-03-05'),
-(6, 6, 3, 'National Grid', 890.30, '2026-03-06'),
-(7, 7, 1, 'Eversource', 1600.80, '2026-03-07'),
-(8, 8, 2, 'MWRA', 330.45, '2026-03-08'),
-(9, 9, 3, 'National Grid', 810.90, '2026-03-09'),
-(10, 10, 1, 'Eversource', 1380.25, '2026-03-10');
+-- Property 1 — January
+(1, 1, 1, 'Eversource', 145.50, '2026-01-15'),
+(2, 1, 2, 'MWRA', 62.30, '2026-01-15'),
+(3, 1, 3, 'National Grid', 98.75, '2026-01-15'),
+-- Property 1 — February
+(4, 1, 1, 'Eversource', 138.20, '2026-02-15'),
+(5, 1, 2, 'MWRA', 58.10, '2026-02-15'),
+(6, 1, 3, 'National Grid', 105.40, '2026-02-15'),
+-- Property 1 — March
+(7, 1, 1, 'Eversource', 125.80, '2026-03-15'),
+(8, 1, 2, 'MWRA', 55.20, '2026-03-15'),
+(9, 1, 3, 'National Grid', 89.60, '2026-03-15'),
+(10, 1, 4, 'Comcast', 79.99, '2026-03-15'),
+-- Property 2 — February
+(11, 2, 1, 'Eversource', 132.40, '2026-02-15'),
+(12, 2, 2, 'MWRA', 48.70, '2026-02-15'),
+-- Property 2 — March
+(13, 2, 1, 'Eversource', 128.90, '2026-03-15'),
+(14, 2, 2, 'MWRA', 51.30, '2026-03-15'),
+(15, 2, 3, 'National Grid', 76.50, '2026-03-15'),
+-- Property 3 — March
+(16, 3, 1, 'Eversource', 112.60, '2026-03-15'),
+(17, 3, 4, 'Comcast', 69.99, '2026-03-15');
 SET IDENTITY_INSERT dbo.UTILITY_READING OFF;
 GO
