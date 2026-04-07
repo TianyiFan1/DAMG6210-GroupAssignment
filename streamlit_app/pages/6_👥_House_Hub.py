@@ -80,10 +80,20 @@ def tab_my_lease_details(tenant_id: int):
         else:
             for _, roommate in roommates_df.iterrows():
                 col1, col2, col3, col4 = st.columns([2, 1.5, 1.5, 1])
-                with col1: st.write(f"**{roommate['First_Name']} {roommate['Last_Name']}**")
-                with col2: st.markdown(f"[📧 Email](mailto:{roommate['Email']})") if roommate.get('Email') else st.write("—")
-                with col3: st.markdown(f"[📞 Call](tel:{roommate['Phone_Number']})") if roommate.get('Phone_Number') else st.write("—")
-                with col4: st.caption(f"@{roommate['First_Name'].lower()}")
+                with col1:
+                    st.write(f"**{roommate['First_Name']} {roommate['Last_Name']}**")
+                with col2:
+                    if roommate.get('Email'):
+                        st.markdown(f"[📧 Email](mailto:{roommate['Email']})")
+                    else:
+                        st.write("—")
+                with col3:
+                    if roommate.get('Phone_Number'):
+                        st.markdown(f"[📞 Call](tel:{roommate['Phone_Number']})")
+                    else:
+                        st.write("—")
+                with col4:
+                    st.caption(f"@{roommate['First_Name'].lower()}")
         st.divider()
     except Exception as exc:
         st.error(f"Failed to load lease details: {exc}")
